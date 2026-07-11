@@ -17,6 +17,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -162,14 +164,58 @@ class Application(UUIDPrimaryKeyMixin, Base):
 
 class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "application_events"
-    application_id: Mapped[UUID] = mapped_column(
-        ForeignKey("applications.id", ondelete="RESTRICT"), nullable=False
+    __table_args__ = (
+        CheckConstraint(
+            "previous_snapshot_id <> current_snapshot_id",
+            name="event_snapshots_distinct",
+        ),
+        CheckConstraint(
+            "event_type IN ('appeared', 'disappeared', 'rank_changed', 'score_changed', "
+            "'priority_changed', 'consent_changed', 'status_changed', 'bvi_changed', "
+            "'advantages_changed', 'condition_changed')",
+            name="event_type_known",
+        ),
+        UniqueConstraint(
+            "previous_snapshot_id",
+            "current_snapshot_id",
+            "applicant_uid_hmac",
+            "previous_admission_condition",
+            "current_admission_condition",
+            "event_type",
+            name="uq_application_events_diff_identity",
+        ),
+        Index("ix_application_events_group_current", "competition_group_id", "current_snapshot_id"),
+        Index(
+            "uq_application_events_diff_identity_nulls",
+            "previous_snapshot_id",
+            "current_snapshot_id",
+            "applicant_uid_hmac",
+            text("coalesce(previous_admission_condition, '')"),
+            text("coalesce(current_admission_condition, '')"),
+            "event_type",
+            unique=True,
+        ),
     )
-    snapshot_id: Mapped[UUID] = mapped_column(
+    competition_group_id: Mapped[UUID] = mapped_column(
+        ForeignKey("competition_groups.id", ondelete="RESTRICT"), nullable=False
+    )
+    applicant_uid_hmac: Mapped[str] = mapped_column(String(64), nullable=False)
+    identity_namespace: Mapped[str] = mapped_column(String(255), nullable=False)
+    previous_snapshot_id: Mapped[UUID] = mapped_column(
         ForeignKey("list_snapshots.id", ondelete="RESTRICT"), nullable=False
     )
+    current_snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("list_snapshots.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_admission_condition: Mapped[str | None] = mapped_column(String(64))
+    current_admission_condition: Mapped[str | None] = mapped_column(String(64))
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    before_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    after_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    diff_version: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
 class TrackedUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
