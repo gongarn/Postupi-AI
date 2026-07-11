@@ -57,4 +57,15 @@ async def test_forecast_persistence_is_idempotent(db_session: AsyncSession) -> N
     await db_session.commit()
     assert created is True
     assert duplicate is False
-    assert len(list((await db_session.scalars(select(ForecastRun))).all())) == 1
+    assert (
+        len(
+            list(
+                (
+                    await db_session.scalars(
+                        select(ForecastRun).where(ForecastRun.user_target_id == target.id)
+                    )
+                ).all()
+            )
+        )
+        == 1
+    )
