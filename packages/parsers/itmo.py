@@ -184,6 +184,17 @@ def _validate_applications(applications: list[NormalizedApplication]) -> None:
 
 
 def _validate_no_raw_uids(snapshot: ParsedSnapshot, raw_uids: set[str]) -> None:
-    serialized = json.dumps(asdict(snapshot), ensure_ascii=False, default=str)
-    if "sspvo_id" in serialized or any(uid in serialized for uid in raw_uids):
+    output = asdict(snapshot)
+    serialized = json.dumps(output, ensure_ascii=False, default=str)
+    if "sspvo_id" in serialized or _contains_exact_string(output, raw_uids):
         raise ValueError("raw UID found in parser output")
+
+
+def _contains_exact_string(value: Any, forbidden: set[str]) -> bool:
+    if isinstance(value, str):
+        return value in forbidden
+    if isinstance(value, dict):
+        return any(_contains_exact_string(item, forbidden) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_exact_string(item, forbidden) for item in value)
+    return False
