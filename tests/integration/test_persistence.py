@@ -50,8 +50,8 @@ async def test_migration_has_expected_tables(db_engine: AsyncEngine) -> None:
         "application_events",
         "tracked_users",
         "user_targets",
-        "forecast_runs",
         "notifications",
+        "forecast_runs",
     } <= set(names)
 
 
@@ -175,6 +175,8 @@ async def test_user_delete_cascades_only_user_owned_rows(db_session: AsyncSessio
             ForecastRun(
                 tracked_user_id=user.id,
                 user_target_id=target.id,
+                current_snapshot_id=snapshot.id,
+                engine_version="test-1",
                 probability_low=0.1,
                 probability_high=0.5,
                 confidence="unknown",

@@ -272,6 +272,10 @@ class ForecastRun(UUIDPrimaryKeyMixin, Base):
             "probability_high >= 0 AND probability_high <= 1", name="probability_high_range"
         ),
         CheckConstraint("probability_low <= probability_high", name="probability_order"),
+        UniqueConstraint(
+            "user_target_id", "current_snapshot_id", "engine_version",
+            name="uq_forecast_runs_target_snapshot_engine",
+        ),
     )
     tracked_user_id: Mapped[UUID] = mapped_column(
         ForeignKey("tracked_users.id", ondelete="CASCADE"), nullable=False
@@ -279,6 +283,10 @@ class ForecastRun(UUIDPrimaryKeyMixin, Base):
     user_target_id: Mapped[UUID] = mapped_column(
         ForeignKey("user_targets.id", ondelete="CASCADE"), nullable=False
     )
+    current_snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("list_snapshots.id", ondelete="RESTRICT"), nullable=False
+    )
+    engine_version: Mapped[str] = mapped_column(String(32), nullable=False)
     probability_low: Mapped[float] = mapped_column(nullable=False)
     probability_high: Mapped[float] = mapped_column(nullable=False)
     estimated_rank_min: Mapped[int | None] = mapped_column(Integer)

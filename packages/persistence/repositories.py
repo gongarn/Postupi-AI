@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.persistence.models import (
     CompetitionGroup,
+    ForecastRun,
     ListSnapshot,
     TrackedUser,
     University,
@@ -186,6 +187,55 @@ class UserTargetRepository:
             competition_group_id=competition_group_id,
             identity_namespace=identity_namespace,
             applicant_uid_hmac=applicant_uid_hmac,
+        )
+        self.session.add(entity)
+        await self.session.flush()
+        return entity
+
+
+class ForecastRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_by_identity(
+        self, *, user_target_id: UUID, current_snapshot_id: UUID, engine_version: str
+    ) -> ForecastRun | None:
+        return cast(
+            ForecastRun | None,
+            await self.session.scalar(
+                select(ForecastRun).where(
+                    ForecastRun.user_target_id == user_target_id,
+                    ForecastRun.current_snapshot_id == current_snapshot_id,
+                    ForecastRun.engine_version == engine_version,
+                )
+            ),
+        )
+
+    async def add(
+        self,
+        *,
+        tracked_user_id: UUID,
+        user_target_id: UUID,
+        current_snapshot_id: UUID,
+        engine_version: str,
+        probability_low: float,
+        probability_high: float,
+        estimated_rank_min: int | None,
+        estimated_rank_max: int | None,
+        confidence: str,
+        explanation: dict[str, Any],
+    ) -> ForecastRun:
+        entity = ForecastRun(
+            tracked_user_id=tracked_user_id,
+            user_target_id=user_target_id,
+            current_snapshot_id=current_snapshot_id,
+            engine_version=engine_version,
+            probability_low=probability_low,
+            probability_high=probability_high,
+            estimated_rank_min=estimated_rank_min,
+            estimated_rank_max=estimated_rank_max,
+            confidence=confidence,
+            explanation=explanation,
         )
         self.session.add(entity)
         await self.session.flush()
