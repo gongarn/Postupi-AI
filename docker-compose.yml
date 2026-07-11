@@ -76,9 +76,11 @@ services:
       dockerfile: infra/docker/Dockerfile
     command: ["python", "-m", "apps.bot.main"]
     environment:
+      POSTUPI_DATABASE_URL: postgresql+asyncpg://postupi:postupi@postgres:5432/postupi
       POSTUPI_REDIS_URL: redis://redis:6379/0
       POSTUPI_TELEGRAM_BOT_TOKEN: ${POSTUPI_TELEGRAM_BOT_TOKEN:-}
     depends_on:
+      postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
 
 volumes:
