@@ -26,6 +26,12 @@ docker-lint:
 docker-typecheck:
 	docker compose run --rm --no-deps --build api mypy apps packages
 
+migrate:
+	docker compose run --rm api alembic upgrade head
+
+migration-check:
+	docker compose run --rm api alembic current --check-heads
+
 up:
 	docker compose up --build -d
 
