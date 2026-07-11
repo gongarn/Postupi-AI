@@ -8,7 +8,7 @@ from packages.common.config import get_settings
 
 async def main() -> int:
     settings = get_settings()
-    redis: Redis[str] = Redis.from_url(settings.redis_url, decode_responses=True)
+    redis: Redis = Redis.from_url(str(settings.redis_url), decode_responses=True)
     try:
         value = await redis.get(settings.worker_health_key)
         return 0 if value == "ok" else 1

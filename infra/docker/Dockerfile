@@ -7,6 +7,7 @@ COPY pyproject.toml README.md ./
 COPY apps ./apps
 COPY packages ./packages
 COPY docs ./docs
+COPY tests ./tests
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir ".[dev]"
 
 RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app

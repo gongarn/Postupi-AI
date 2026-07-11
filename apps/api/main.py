@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from time import perf_counter
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -18,9 +19,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     log = structlog.get_logger(__name__)
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        app.state.engine = create_engine(config.database_url)
-        app.state.redis = create_redis(config.redis_url)
+    async def lifespan(app: FastAPI) -> Any:
+        app.state.engine = create_engine(str(config.database_url))
+        app.state.redis = create_redis(str(config.redis_url))
         log.info("api_started", environment=config.environment)
         try:
             yield
@@ -33,7 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system_router)
 
     @app.middleware("http")
-    async def request_logging(request: Request, call_next):
+    async def request_logging(request: Request, call_next: Any) -> Any:
         request_id = request.headers.get("x-request-id", str(uuid4()))
         start = perf_counter()
         response = await call_next(request)
@@ -49,7 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     @app.exception_handler(Exception)
-    async def unhandled_error(request: Request, exc: Exception):
+    async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
         log.exception("unhandled_error", path=request.url.path, error_type=type(exc).__name__)
         return JSONResponse(status_code=500, content={"detail": "internal server error"})
 

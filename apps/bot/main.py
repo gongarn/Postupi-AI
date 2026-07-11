@@ -13,7 +13,7 @@ async def main() -> None:
     if not settings.telegram_bot_token:
         raise RuntimeError("POSTUPI_TELEGRAM_BOT_TOKEN is required for the bot")
     bot = Bot(
-        token=settings.telegram_bot_token,
+        token=settings.telegram_bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dispatcher = Dispatcher()

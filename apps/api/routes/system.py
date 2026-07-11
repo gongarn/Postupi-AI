@@ -23,7 +23,7 @@ async def live() -> dict[str, str]:
 @router.get("/health/ready")
 async def ready(
     engine: Annotated[AsyncEngine, Depends(get_engine)],
-    redis: Annotated[Redis[str], Depends(get_redis)],
+    redis: Annotated[Redis, Depends(get_redis)],
 ) -> dict[str, str]:
     try:
         async with engine.connect() as connection:

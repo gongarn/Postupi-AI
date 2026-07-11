@@ -8,6 +8,7 @@ __pycache__/
 .env.*
 !.env.example
 *.egg-info/
+build/
 raw-fixtures/
 *.log
 postgres_data/
