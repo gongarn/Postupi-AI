@@ -4,3 +4,4 @@ fixtures/private/
 *.fixture.json
 __pycache__/
 *.egg-info/
+.codegraph

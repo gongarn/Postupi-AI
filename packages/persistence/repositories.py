@@ -9,6 +9,7 @@ from packages.persistence.models import (
     CompetitionGroup,
     ForecastRun,
     ListSnapshot,
+    Notification,
     TrackedUser,
     University,
     UserTarget,
@@ -240,3 +241,77 @@ class ForecastRepository:
         self.session.add(entity)
         await self.session.flush()
         return entity
+
+
+class NotificationRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_by_delivery_key(
+        self, *, tracked_user_id: UUID, user_target_id: UUID, delivery_key: str
+    ) -> Notification | None:
+        return cast(
+            Notification | None,
+            await self.session.scalar(
+                select(Notification).where(
+                    Notification.tracked_user_id == tracked_user_id,
+                    Notification.user_target_id == user_target_id,
+                    Notification.delivery_key == delivery_key,
+                )
+            ),
+        )
+
+    async def add(
+        self,
+        *,
+        tracked_user_id: UUID,
+        user_target_id: UUID,
+        current_snapshot_id: UUID,
+        engine_version: str,
+        delivery_key: str,
+        kind: str,
+        payload: dict[str, Any],
+    ) -> Notification:
+        entity = Notification(
+            tracked_user_id=tracked_user_id,
+            user_target_id=user_target_id,
+            current_snapshot_id=current_snapshot_id,
+            engine_version=engine_version,
+            delivery_key=delivery_key,
+            kind=kind,
+            payload=payload,
+            delivery_status="pending",
+        )
+        self.session.add(entity)
+        await self.session.flush()
+        return entity
+
+    async def mark_sent(self, notification: Notification, sent_at: datetime) -> None:
+        notification.delivery_status = "sent"
+        notification.sent_at = sent_at
+        notification.attempt_count += 1
+        notification.last_error_code = None
+        await self.session.flush()
+
+    async def mark_failed(self, notification: Notification, error_code: str) -> None:
+        notification.delivery_status = "failed"
+        notification.attempt_count += 1
+        notification.last_error_code = error_code
+        await self.session.flush()
+
+    async def mark_skipped(self, notification: Notification, error_code: str) -> None:
+        notification.delivery_status = "skipped"
+        notification.last_error_code = error_code
+        await self.session.flush()
+
+    async def list_deliverable(self, *, limit: int, max_attempts: int) -> list[Notification]:
+        result = await self.session.scalars(
+            select(Notification)
+            .where(
+                Notification.delivery_status.in_(("pending", "failed")),
+                Notification.attempt_count < max_attempts,
+            )
+            .order_by(Notification.id)
+            .limit(limit)
+        )
+        return list(result)

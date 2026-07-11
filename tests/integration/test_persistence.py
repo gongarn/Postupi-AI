@@ -182,10 +182,11 @@ async def test_user_delete_cascades_only_user_owned_rows(db_session: AsyncSessio
                 confidence="unknown",
                 explanation={},
             ),
-            Notification(
-                tracked_user_id=user.id,
-                user_target_id=target.id,
-                kind="test",
+                Notification(
+                    tracked_user_id=user.id,
+                    user_target_id=target.id,
+                    delivery_key="test-delivery-key",
+                    kind="test",
                 payload={},
                 delivery_status="pending",
             ),

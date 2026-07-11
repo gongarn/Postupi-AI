@@ -299,14 +299,27 @@ class ForecastRun(UUIDPrimaryKeyMixin, Base):
 
 class Notification(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint(
+            "tracked_user_id", "user_target_id", "delivery_key", name="uq_notifications_delivery"
+        ),
+    )
     tracked_user_id: Mapped[UUID] = mapped_column(
         ForeignKey("tracked_users.id", ondelete="CASCADE"), nullable=False
     )
     user_target_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("user_targets.id", ondelete="SET NULL")
     )
+    current_snapshot_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("list_snapshots.id", ondelete="SET NULL")
+    )
+    engine_version: Mapped[str | None] = mapped_column(String(32))
+    delivery_key: Mapped[str] = mapped_column(String(128), nullable=False)
     kind: Mapped[str] = mapped_column(String(64), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     delivery_status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error_code: Mapped[str | None] = mapped_column(String(64))
     tracked_user: Mapped[TrackedUser] = relationship(back_populates="notifications")
     user_target: Mapped[UserTarget | None] = relationship(back_populates="notifications")

@@ -35,3 +35,16 @@ def back_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="Назад", callback_data=BotCallback(action="tracks").pack())]
         ]
     )
+
+
+def notification_keyboard(target_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Открыть направление",
+                    callback_data=BotCallback(action="target", token=target_id).pack(),
+                )
+            ]
+        ]
+    )

@@ -5,6 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from apps.bot.delivery import deliver_pending_notifications
 from apps.bot.handlers.system import router
 from packages.common.config import get_settings
 
@@ -24,9 +25,12 @@ async def main() -> None:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     dispatcher = Dispatcher()
     dispatcher.include_router(router)
+    delivery_task = asyncio.create_task(deliver_pending_notifications(bot, session_factory))
     try:
         await dispatcher.start_polling(bot)
     finally:
+        delivery_task.cancel()
+        await asyncio.gather(delivery_task, return_exceptions=True)
         await engine.dispose()
 
 

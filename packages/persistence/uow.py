@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from packages.persistence.repositories import (
     CompetitionGroupRepository,
     ForecastRepository,
+    NotificationRepository,
     SnapshotRepository,
     UniversityRepository,
     UserRepository,
@@ -22,6 +23,7 @@ class UnitOfWork:
         self.users = UserRepository(self.session)
         self.user_targets = UserTargetRepository(self.session)
         self.forecasts = ForecastRepository(self.session)
+        self.notifications = NotificationRepository(self.session)
         return self
 
     async def __aexit__(self, exc_type: object, exc: object, traceback: object) -> None:
