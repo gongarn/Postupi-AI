@@ -42,14 +42,15 @@ class CompetitionGroupRepository:
         return cast(CompetitionGroup | None, await self.session.get(CompetitionGroup, group_id))
 
     async def get_by_external_key(
-        self, *, university_id: UUID, external_key: str
+        self, *, university_id: UUID, campaign_year: int, external_group_id: str
     ) -> CompetitionGroup | None:
         return cast(
             CompetitionGroup | None,
             await self.session.scalar(
                 select(CompetitionGroup).where(
                     CompetitionGroup.university_id == university_id,
-                    CompetitionGroup.external_key == external_key,
+                    CompetitionGroup.campaign_year == campaign_year,
+                    CompetitionGroup.external_group_id == external_group_id,
                 )
             ),
         )
@@ -58,7 +59,8 @@ class CompetitionGroupRepository:
         self,
         *,
         university_id: UUID,
-        external_key: str,
+        campaign_year: int,
+        external_group_id: str,
         title: str,
         identity_namespace: str,
         priority_kind: str = "unknown",
@@ -66,7 +68,8 @@ class CompetitionGroupRepository:
     ) -> CompetitionGroup:
         entity = CompetitionGroup(
             university_id=university_id,
-            external_key=external_key,
+            campaign_year=campaign_year,
+            external_group_id=external_group_id,
             title=title,
             identity_namespace=identity_namespace,
             priority_kind=priority_kind,
@@ -99,6 +102,7 @@ class SnapshotRepository:
         self,
         *,
         competition_group_id: UUID,
+        campaign_year: int,
         source_url: str,
         content_hash: str,
         fetched_at: datetime,
@@ -110,6 +114,7 @@ class SnapshotRepository:
     ) -> ListSnapshot:
         entity = ListSnapshot(
             competition_group_id=competition_group_id,
+            campaign_year=campaign_year,
             source_url=source_url,
             content_hash=content_hash,
             fetched_at=fetched_at,

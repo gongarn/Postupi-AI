@@ -26,7 +26,8 @@ async def _seed_group(session: AsyncSession) -> tuple[University, CompetitionGro
     await session.flush()
     group = CompetitionGroup(
         university_id=university.id,
-        external_key="test-group",
+        campaign_year=2025,
+        external_group_id="test-group",
         title="Test Group",
         identity_namespace="test:2025",
         priority_kind="unknown",
@@ -68,6 +69,7 @@ async def test_snapshot_deduplication_and_application_namespace(db_session: Asyn
     _, group = await _seed_group(db_session)
     snapshot = ListSnapshot(
         competition_group_id=group.id,
+        campaign_year=2025,
         source_url="https://example.invalid/list",
         content_hash="a" * 64,
         fetched_at=datetime.now(UTC),
@@ -85,6 +87,7 @@ async def test_snapshot_deduplication_and_application_namespace(db_session: Asyn
             competition_group_id=group.id,
             identity_namespace="test:2025",
             applicant_uid_hmac="b" * 64,
+            admission_condition="general_competition",
             rank=1,
             raw_payload={"rank": 1},
         )
@@ -92,6 +95,7 @@ async def test_snapshot_deduplication_and_application_namespace(db_session: Asyn
     await db_session.commit()
     duplicate = ListSnapshot(
         competition_group_id=group.id,
+        campaign_year=2025,
         source_url="https://example.invalid/list",
         content_hash="a" * 64,
         fetched_at=datetime.now(UTC),
@@ -112,6 +116,7 @@ async def test_application_requires_identity_namespace(db_session: AsyncSession)
     _, group = await _seed_group(db_session)
     snapshot = ListSnapshot(
         competition_group_id=group.id,
+        campaign_year=2025,
         source_url="https://example.invalid/list/no-namespace",
         content_hash="e" * 64,
         fetched_at=datetime.now(UTC),
@@ -129,6 +134,7 @@ async def test_application_requires_identity_namespace(db_session: AsyncSession)
             competition_group_id=group.id,
             identity_namespace=None,
             applicant_uid_hmac="f" * 64,
+            admission_condition="general_competition",
             rank=1,
             raw_payload={},
         )
@@ -143,6 +149,7 @@ async def test_user_delete_cascades_only_user_owned_rows(db_session: AsyncSessio
     _, group = await _seed_group(db_session)
     snapshot = ListSnapshot(
         competition_group_id=group.id,
+        campaign_year=2025,
         source_url="https://example.invalid/list",
         content_hash="c" * 64,
         fetched_at=datetime.now(UTC),

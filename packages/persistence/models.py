@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -67,14 +68,20 @@ class University(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class CompetitionGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "competition_groups"
     __table_args__ = (
-        UniqueConstraint("university_id", "external_key", name="uq_groups_university_external"),
+        UniqueConstraint(
+            "university_id",
+            "campaign_year",
+            "external_group_id",
+            name="uq_groups_university_campaign_external",
+        ),
         CheckConstraint("length(identity_namespace) > 0", name="identity_namespace_nonempty"),
     )
 
     university_id: Mapped[UUID] = mapped_column(
         ForeignKey("universities.id", ondelete="RESTRICT"), nullable=False
     )
-    external_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    campaign_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    external_group_id: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     identity_namespace: Mapped[str] = mapped_column(String(255), nullable=False)
     priority_kind: Mapped[str] = mapped_column(
@@ -96,12 +103,14 @@ class ListSnapshot(UUIDPrimaryKeyMixin, Base):
             name="uq_snapshots_group_source_hash",
         ),
         UniqueConstraint("id", "competition_group_id", name="uq_snapshots_id_group"),
+        CheckConstraint("campaign_year >= 2000", name="snapshot_campaign_year_valid"),
         CheckConstraint("row_count >= 0", name="row_count_nonnegative"),
     )
 
     competition_group_id: Mapped[UUID] = mapped_column(
         ForeignKey("competition_groups.id", ondelete="RESTRICT"), nullable=False
     )
+    campaign_year: Mapped[int] = mapped_column(Integer, nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -119,7 +128,12 @@ class Application(UUIDPrimaryKeyMixin, Base):
     __table_args__ = (
         CheckConstraint("length(identity_namespace) > 0", name="identity_namespace_nonempty"),
         CheckConstraint("rank > 0", name="rank_positive"),
-        UniqueConstraint("snapshot_id", "rank", name="uq_applications_snapshot_rank"),
+        UniqueConstraint(
+            "snapshot_id",
+            "admission_condition",
+            "applicant_uid_hmac",
+            name="uq_applications_snapshot_condition_uid",
+        ),
         ForeignKeyConstraint(
             ["snapshot_id", "competition_group_id"],
             ["list_snapshots.id", "list_snapshots.competition_group_id"],
@@ -136,6 +150,7 @@ class Application(UUIDPrimaryKeyMixin, Base):
     )
     identity_namespace: Mapped[str] = mapped_column(String(255), nullable=False)
     applicant_uid_hmac: Mapped[str] = mapped_column(String(64), nullable=False)
+    admission_condition: Mapped[str] = mapped_column(String(64), nullable=False)
     rank: Mapped[int] = mapped_column(Integer, nullable=False)
     enrollment_priority: Mapped[int | None] = mapped_column(Integer)
     consent: Mapped[bool | None] = mapped_column(Boolean)
@@ -160,7 +175,7 @@ class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
 class TrackedUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "tracked_users"
     __table_args__ = (UniqueConstraint("telegram_user_id", name="uq_tracked_users_telegram_id"),)
-    telegram_user_id: Mapped[int] = mapped_column(nullable=False)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
     consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     user_targets: Mapped[list[UserTarget]] = relationship(

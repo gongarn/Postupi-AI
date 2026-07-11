@@ -1,1 +1,1 @@
-"""Parser layer placeholder for Stage 3."""
+"""Privacy-safe university snapshot parsers."""

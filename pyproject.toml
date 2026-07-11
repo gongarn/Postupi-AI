@@ -47,6 +47,7 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = ["private_fixture: requires a local private fixture and is excluded from normal CI"]
 
 [tool.mypy]
 python_version = "3.12"
