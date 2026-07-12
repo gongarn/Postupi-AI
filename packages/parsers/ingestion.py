@@ -93,6 +93,7 @@ async def persist_snapshot(
                 enrollment_priority=item.enrollment_priority,
                 competitive_score=item.competitive_score,
                 application_status=item.application_status,
+                consent=item.consent,
                 raw_payload=item.raw_payload,
             )
         )

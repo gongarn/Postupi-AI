@@ -19,6 +19,16 @@ class RawSnapshotStorage:
         raise NotImplementedError
 
 
+class DiscardingRawSnapshotStorage(RawSnapshotStorage):
+    """Validate content identity without retaining source response bodies."""
+
+    def put(self, content: bytes, *, metadata: RawSnapshotMetadata) -> str:
+        content_hash = hashlib.sha256(content).hexdigest()
+        if content_hash != metadata.content_hash:
+            raise ValueError("raw content hash mismatch")
+        return f"sha256/{content_hash[:2]}/{content_hash}"
+
+
 class LocalContentAddressedRawSnapshotStorage(RawSnapshotStorage):
     def __init__(self, root: Path) -> None:
         self.root = root

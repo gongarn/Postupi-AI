@@ -38,6 +38,8 @@ class NormalizedApplication:
     competitive_score: float | None
     application_status: str | None
     raw_payload: dict[str, Any]
+    consent: bool | None = None
+    bvi: bool | None = None
 
 
 @dataclass(frozen=True)
