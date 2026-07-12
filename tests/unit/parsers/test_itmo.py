@@ -1,7 +1,7 @@
 import json
 from datetime import UTC, datetime
 
-from packages.parsers.itmo import ITMO_NAMESPACE, ItmoParser
+from packages.parsers.itmo import ITMO_2025_GROUP_ID, ITMO_2025_NAMESPACE, ItmoParser
 
 
 def _fixture() -> bytes:
@@ -47,13 +47,15 @@ def _fixture() -> bytes:
 
 def test_itmo_parser_allowlist_and_hmac() -> None:
     raw_uid = "12345"
-    result = ItmoParser(uid_secret="unit-secret").parse(
+    result = ItmoParser(
+        uid_secret="unit-secret", campaign_year=2025, competitive_group_id=ITMO_2025_GROUP_ID
+    ).parse(
         _fixture(), source_url="https://example.invalid", fetched_at=datetime.now(UTC)
     )
     assert result.snapshot is not None
     assert result.status == "valid"
     application = result.snapshot.applications[0]
-    assert application.identity_namespace == ITMO_NAMESPACE
+    assert application.identity_namespace == ITMO_2025_NAMESPACE
     assert application.applicant_uid_hmac != raw_uid
     assert "sspvo_id" not in application.raw_payload
     assert "link" not in application.raw_payload
@@ -64,7 +66,32 @@ def test_itmo_parser_rejects_schema_drift() -> None:
     payload = json.loads(_fixture().decode().split(">", 1)[1].rsplit("<", 1)[0])
     payload["props"]["pageProps"]["programList"]["general_competition"][0]["new_field"] = True
     content = f'<script id="__NEXT_DATA__">{json.dumps(payload)}</script>'.encode()
-    result = ItmoParser(uid_secret="unit-secret").parse(
+    result = ItmoParser(
+        uid_secret="unit-secret", campaign_year=2025, competitive_group_id=ITMO_2025_GROUP_ID
+    ).parse(
         content, source_url="https://example.invalid", fetched_at=datetime.now(UTC)
     )
     assert result.status == "failed"
+
+
+def test_itmo_parser_supports_verified_2026_contract() -> None:
+    raw_uid = "12345"
+    result = ItmoParser(
+        uid_secret="unit-secret", campaign_year=2026, competitive_group_id="2199"
+    ).parse(
+        _fixture(), source_url="https://example.invalid", fetched_at=datetime.now(UTC)
+    )
+    assert result.snapshot is not None
+    application = result.snapshot.applications[0]
+    assert result.snapshot.group.campaign_year == 2026
+    assert application.identity_namespace == "itmo:2026:portal-code:v1"
+    assert application.applicant_uid_hmac != raw_uid
+    assert application.consent is True
+    assert application.bvi is False
+
+
+def test_itmo_parser_defaults_to_2026_live_contract() -> None:
+    parser = ItmoParser(uid_secret="unit-secret")
+    assert parser.campaign_year == 2026
+    assert parser.competitive_group_id == "2334"
+    assert parser.identity_namespace == "itmo:2026:portal-code:v1"

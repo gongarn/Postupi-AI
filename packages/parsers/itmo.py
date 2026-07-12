@@ -18,11 +18,13 @@ from packages.parsers.base import (
     ParserResultStatus,
 )
 
-ITMO_NAMESPACE = "admissions_uid:observed_cross_university:2025"
-ITMO_GROUP_ID = "2199"
+ITMO_NAMESPACE = "itmo:2026:portal-code:v1"
+ITMO_GROUP_ID = "2334"
+ITMO_2025_NAMESPACE = "admissions_uid:observed_cross_university:2025"
+ITMO_2025_GROUP_ID = "2199"
+ITMO_2026_NAMESPACE = ITMO_NAMESPACE
 ITMO_SOURCE_URL = (
-    "https://web.archive.org/web/20250801140330id_/"
-    "https://abit.itmo.ru/rating/bachelor/budget/2199"
+    "https://abit.itmo.ru/rating/bachelor/budget/2334"
 )
 _CONDITIONS = (
     "general_competition",
@@ -57,9 +59,25 @@ _ALLOWED_PAYLOAD_FIELDS = {
 class ItmoParser(BaseUniversityParser):
     parser_version = "itmo-next-data-1"
 
-    def __init__(self, *, uid_secret: str, identity_namespace: str = ITMO_NAMESPACE) -> None:
+    def __init__(
+        self,
+        *,
+        uid_secret: str,
+        campaign_year: int = 2026,
+        competitive_group_id: str = ITMO_GROUP_ID,
+        identity_namespace: str | None = None,
+    ) -> None:
+        if campaign_year < 2000:
+            raise ValueError("invalid ITMO campaign year")
         self.uid_secret = uid_secret
-        self.identity_namespace = identity_namespace
+        self.campaign_year = campaign_year
+        self.competitive_group_id = competitive_group_id
+        self.identity_namespace = identity_namespace or (
+            ITMO_2025_NAMESPACE if campaign_year == 2025 else ITMO_2026_NAMESPACE
+            if campaign_year == 2026
+            else f"itmo:{campaign_year}:portal-code:v1"
+        )
+        self.parser_version = f"itmo-next-data-{campaign_year}"
 
     def parse(self, content: bytes, *, source_url: str, fetched_at: datetime) -> ParserResult:
         try:
@@ -67,7 +85,7 @@ class ItmoParser(BaseUniversityParser):
             page = data["props"]["pageProps"]
             program = page["programList"]
             direction = program["direction"]
-            _validate_metadata(data, direction)
+            _validate_metadata(data, direction, self.competitive_group_id)
             applications: list[NormalizedApplication] = []
             for condition in _CONDITIONS:
                 for record in program[condition]:
@@ -78,14 +96,14 @@ class ItmoParser(BaseUniversityParser):
                 group=NormalizedCompetitionGroup(
                     university_code="itmo",
                     university_name="ITMO University",
-                    campaign_year=2025,
+                    campaign_year=self.campaign_year,
                     external_group_id=str(direction["competitive_group_id"]),
                     title=str(direction["direction_title"]),
                     degree=str(page["degree"]),
                     financing=str(page["financing"]),
                     identity_namespace=self.identity_namespace,
                     source_metadata={"source_format": "itmo_next_data"},
-                    seat_counts={condition: None for condition in _CONDITIONS},
+                    seat_counts=_seat_counts(direction),
                 ),
                 applications=tuple(applications),
                 source_url=source_url,
@@ -94,7 +112,7 @@ class ItmoParser(BaseUniversityParser):
                 raw_storage_key=f"sha256/{content_hash[:2]}/{content_hash}.html",
                 raw_payload={
                     "source_format": "itmo_next_data",
-                    "campaign_year": 2025,
+                    "campaign_year": self.campaign_year,
                     "degree": str(page["degree"]),
                     "financing": str(page["financing"]),
                     "external_group_id": str(direction["competitive_group_id"]),
@@ -141,6 +159,8 @@ class ItmoParser(BaseUniversityParser):
                 float(record["total_scores"]) if record["total_scores"] is not None else None
             ),
             application_status=str(record["status"]) if record["status"] is not None else None,
+            consent=record["is_send_agreement"],
+            bvi=condition == "without_entry_tests",
             raw_payload=payload,
         )
 
@@ -160,12 +180,30 @@ def _extract_next_data(content: bytes) -> dict[str, Any]:
     return parsed
 
 
-def _validate_metadata(data: dict[str, Any], direction: dict[str, Any]) -> None:
+def _validate_metadata(
+    data: dict[str, Any], direction: dict[str, Any], competitive_group_id: str
+) -> None:
     query = data.get("query")
-    if not isinstance(query, dict) or str(query.get("id")) != ITMO_GROUP_ID:
+    if not isinstance(query, dict) or str(query.get("id")) != competitive_group_id:
         raise ValueError("unexpected group metadata")
-    if direction.get("competitive_group_id") != int(ITMO_GROUP_ID):
+    if direction.get("competitive_group_id") != int(competitive_group_id):
         raise ValueError("unexpected competitive group")
+
+
+def _seat_counts(direction: dict[str, Any]) -> dict[str, int | None]:
+    fields = {
+        "budget_min": "general_competition",
+        "special_quota": "by_special_quota",
+        "target_reception": "by_target_quota",
+    }
+    result: dict[str, int | None] = {condition: None for condition in _CONDITIONS}
+    for source_field, condition in fields.items():
+        value = direction.get(source_field)
+        if value is not None:
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError("invalid ITMO seat count")
+            result[condition] = value
+    return result
 
 
 def _validate_applications(applications: list[NormalizedApplication]) -> None:
