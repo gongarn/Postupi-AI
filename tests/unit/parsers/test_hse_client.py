@@ -72,3 +72,54 @@ def test_hse_client_exposes_pinned_source_endpoints() -> None:
         "/admissions/api/competitve-group/group",
         "/admissions/api/quota",
     ]
+
+
+def test_hse_fresh_snapshot_derives_selection_before_applicant_request() -> None:
+    requests: list[httpx.Request] = []
+    discovery = {
+        "filials": [{
+            "trainingDirections": [{"educationPrograms": [{
+                "educationLevel": {"code": "bachelor"},
+                "competitiveGroups": [{
+                    "id": "fresh-group",
+                    "placeType": {"id": "fresh-place"},
+                    "setOfCompetitiveGroup": {"id": "fresh-set"},
+                }],
+            }]}]
+        }]
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/competitve-group"):
+            return httpx.Response(
+                200, headers={"content-type": "application/json"}, json=discovery
+            )
+        if request.url.path.endswith("/fresh-group"):
+            return httpx.Response(
+                200, headers={"content-type": "application/json"}, json={"placeCount": 1}
+            )
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            json={
+                "content": [],
+                "number": 0,
+                "size": 50,
+                "totalElements": 0,
+                "totalPages": 0,
+            },
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            snapshot = await HseClient(client).fetch_fresh_snapshot()
+            assert snapshot.selection["competitiveGroupId"] == "fresh-group"
+
+    asyncio.run(run())
+    applicant = requests[-1]
+    assert applicant.url.path.endswith("/applicant")
+    assert applicant.url.params["competitiveGroupId"] == "fresh-group"
+    assert applicant.url.params["setOfCompetitiveGroupId"] == "fresh-set"
+    assert applicant.url.params["placeType"] == "fresh-place"
+    assert applicant.url.params["level"] == "bachelor"

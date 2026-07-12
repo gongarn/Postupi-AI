@@ -1,7 +1,7 @@
 import json
 from datetime import UTC, datetime
 
-from packages.parsers.hse import HSE_NAMESPACE, HseParser
+from packages.parsers.hse import HSE_NAMESPACE, HseParser, resolve_selection
 
 
 def _fixture(*, mode: str = "registration") -> bytes:
@@ -97,3 +97,43 @@ def test_hse_parser_rejects_unordered_ranks() -> None:
         fetched_at=datetime.now(UTC),
     )
     assert result.status == "failed"
+
+
+def test_hse_selection_is_derived_from_fresh_discovery() -> None:
+    discovery = {
+        "filials": [
+            {
+                "trainingDirections": [
+                    {
+                        "educationPrograms": [
+                            {
+                                "educationLevel": {"code": "bachelor"},
+                                "competitiveGroups": [
+                                    {
+                                        "id": "fresh-group",
+                                        "placeType": {"id": "fresh-place"},
+                                        "setOfCompetitiveGroup": {"id": "fresh-set"},
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    assert resolve_selection(json.dumps(discovery).encode()) == {
+        "competitiveGroupId": "fresh-group",
+        "setOfCompetitiveGroupId": "fresh-set",
+        "placeType": "fresh-place",
+        "level": "bachelor",
+    }
+
+
+def test_hse_selection_rejects_stale_or_incomplete_discovery() -> None:
+    try:
+        resolve_selection(b'{"filials": []}')
+    except ValueError as exc:
+        assert "no usable selection" in str(exc)
+    else:
+        raise AssertionError("incomplete discovery must be rejected")

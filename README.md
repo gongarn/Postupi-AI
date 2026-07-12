@@ -8,9 +8,11 @@ Gosuslugi, cookies, or private applicant systems.
 
 ### Pilot Status
 
-ITMO is the primary pilot source and HSE is the secondary pilot source. MIPT
-is monitor-only. The remaining twelve universities are deferred to 0A.2 and
-do not block MVP infrastructure.
+ITMO is the primary pilot source and HSE is a controlled pilot-ready secondary
+source. HSE regular ingestion requires fresh in-memory discovery before every
+applicant request; unresolved discovery falls back to monitor-only. MIPT is
+monitor-only. The remaining twelve universities are deferred to 0A.2 and do
+not block MVP infrastructure.
 
 The observed 2025 identity namespace is:
 

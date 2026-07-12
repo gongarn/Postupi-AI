@@ -156,12 +156,16 @@ not a Git fixture, public test asset, log payload, or API response.
 
 ### Pilot grade and role
 
-Grade: **B**.
+Grade: **B / controlled pilot-ready**.
 
-HSE is the secondary pilot source. Snapshots and cross-university matching are
-allowed. Forecasting is allowed only with explicit seat-semantic uncertainty;
-HSE data alone cannot produce a high `forecast_confidence` until effective
-ordinary-place mechanics are confirmed from dated official evidence.
+HSE is the secondary source for controlled regular ingestion. Every applicant
+request must resolve `competitiveGroupId`, `setOfCompetitiveGroupId`,
+`placeType`, and `level` from a fresh discovery response in memory. Selection
+values must not be persisted or reused as defaults; unresolved discovery falls
+back to monitor-only. Registration and competition list modes remain explicit.
+`placeCount` is the only accepted seat field. Quota-specific forecasting stays
+disabled until a non-empty quota response is validated. Raw HSE response bodies
+and source identifiers are never persisted; applicant identity is HMAC-only.
 
 ## MIPT Monitor Audit
 

@@ -34,6 +34,30 @@ HSE_APPLICANT_FIELDS = {
 }
 
 
+def resolve_selection(content: bytes) -> dict[str, str]:
+    try:
+        data = json.loads(content)
+        filials = data["filials"]
+        for filial in filials:
+            for direction in filial["trainingDirections"]:
+                for program in direction["educationPrograms"]:
+                    level = program["educationLevel"]
+                    for group in program["competitiveGroups"]:
+                        place_type = group["placeType"]
+                        set_group = group["setOfCompetitiveGroup"]
+                        values = {
+                            "competitiveGroupId": group["id"],
+                            "setOfCompetitiveGroupId": set_group["id"],
+                            "placeType": place_type["id"],
+                            "level": level["code"],
+                        }
+                        if all(isinstance(value, str) and value for value in values.values()):
+                            return values
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid HSE discovery response") from exc
+    raise ValueError("HSE discovery contains no usable selection")
+
+
 class HseParser(BaseUniversityParser):
     parser_version = HSE_PARSER_VERSION
 

@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import httpx
 
-from packages.parsers.hse import HSE_API_BASE
+from packages.parsers.hse import HSE_API_BASE, resolve_selection
+
+
+class HseFreshSnapshot:
+    def __init__(self, *, selection: dict[str, str], header: bytes, applicants: bytes) -> None:
+        self.selection = selection
+        self.header = header
+        self.applicants = applicants
 
 
 class HseClient:
@@ -30,6 +37,27 @@ class HseClient:
 
     async def fetch_competitive_groups(self) -> bytes:
         return await self._request_json("/competitve-group")
+
+    async def fetch_fresh_snapshot(
+        self, *, list_mode: str = "registration", page_size: int = 50
+    ) -> HseFreshSnapshot:
+        if list_mode not in {"registration", "competition"}:
+            raise ValueError("ambiguous HSE list mode")
+        discovery = await self.fetch_competitive_groups()
+        selection = resolve_selection(discovery)
+        header = await self.fetch_group_header(selection["competitiveGroupId"])
+        sort = (
+            "index_number_in_reg_list"
+            if list_mode == "registration"
+            else "index_number_in_comp_list"
+        )
+        applicants = await self.fetch_applicants(
+            **selection,
+            page=0,
+            size=page_size,
+            sort=sort,
+        )
+        return HseFreshSnapshot(selection=selection, header=header, applicants=applicants)
 
     async def fetch_competitive_list(self, **params: str | int) -> bytes:
         return await self._request_json("/competitve-group/competitive-list", params)
