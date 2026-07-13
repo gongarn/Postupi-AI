@@ -20,7 +20,6 @@ def test_hse_client_uses_pinned_json_contract() -> None:
     async def run() -> bytes:
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await HseClient(client).fetch_applicants(
-                competitiveGroupId="g",
                 setOfCompetitiveGroupId="s",
                 placeType="p",
                 level="bachelor",
@@ -38,7 +37,6 @@ def test_hse_client_rejects_contract_drift() -> None:
     with pytest.raises(ValueError, match="contract mismatch"):
         asyncio.run(
             HseClient().fetch_applicants(
-                competitiveGroupId="g",
                 setOfCompetitiveGroupId="s",
                 placeType="p",
                 level="bachelor",
@@ -91,7 +89,7 @@ def test_hse_fresh_snapshot_derives_selection_before_applicant_request() -> None
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.url.path.endswith("/competitve-group"):
+        if request.url.path.endswith("/competitive-list"):
             return httpx.Response(
                 200, headers={"content-type": "application/json"}, json=discovery
             )
@@ -118,8 +116,9 @@ def test_hse_fresh_snapshot_derives_selection_before_applicant_request() -> None
 
     asyncio.run(run())
     applicant = requests[-1]
+    assert requests[0].url.path.endswith("/competitive-list")
+    assert requests[0].url.params["level"] == "BAK"
     assert applicant.url.path.endswith("/applicant")
-    assert applicant.url.params["competitiveGroupId"] == "fresh-group"
     assert applicant.url.params["setOfCompetitiveGroupId"] == "fresh-set"
     assert applicant.url.params["placeType"] == "fresh-place"
-    assert applicant.url.params["level"] == "bachelor"
+    assert applicant.url.params["level"] == "BAK"

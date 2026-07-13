@@ -8,10 +8,18 @@ class BotCallback(CallbackData, prefix="postupi"):
 
 
 def start_keyboard() -> InlineKeyboardMarkup:
-    callback = BotCallback(action="tracks").pack()
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Мои направления", callback_data=callback)]
+            [
+                InlineKeyboardButton(
+                    text="Мои направления", callback_data=BotCallback(action="tracks").pack()
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Добавить направление", callback_data=BotCallback(action="add").pack()
+                )
+            ],
         ]
     )
 
@@ -26,7 +34,42 @@ def tracks_keyboard(target_ids: list[str]) -> InlineKeyboardMarkup:
         ]
         for index, target_id in enumerate(target_ids, start=1)
     ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text="Добавить направление", callback_data=BotCallback(action="add").pack()
+            )
+        ]
+    )
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def competition_groups_keyboard(groups: list[tuple[str, str]]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=label[:64],
+                    callback_data=BotCallback(action="group", token=group_id).pack(),
+                )
+            ]
+            for group_id, label in groups
+        ]
+    )
+
+
+def universities_keyboard(universities: list[tuple[str, str]]) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=name[:64],
+                    callback_data=BotCallback(action="university", token=university_id).pack(),
+                )
+            ]
+            for university_id, name in universities
+        ]
+    )
 
 
 def back_keyboard() -> InlineKeyboardMarkup:

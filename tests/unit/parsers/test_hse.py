@@ -1,7 +1,12 @@
 import json
 from datetime import UTC, datetime
 
-from packages.parsers.hse import HSE_NAMESPACE, HseParser, resolve_selection
+from packages.parsers.hse import (
+    HSE_NAMESPACE,
+    HseParser,
+    resolve_selection,
+    resolve_selection_details,
+)
 
 
 def _fixture(*, mode: str = "registration") -> bytes:
@@ -107,7 +112,7 @@ def test_hse_selection_is_derived_from_fresh_discovery() -> None:
                     {
                         "educationPrograms": [
                             {
-                                "educationLevel": {"code": "bachelor"},
+                                "educationLevel": {"id": "bachelor-id", "code": "bachelor"},
                                 "competitiveGroups": [
                                     {
                                         "id": "fresh-group",
@@ -126,8 +131,40 @@ def test_hse_selection_is_derived_from_fresh_discovery() -> None:
         "competitiveGroupId": "fresh-group",
         "setOfCompetitiveGroupId": "fresh-set",
         "placeType": "fresh-place",
-        "level": "bachelor",
+        "level": "BAK",
     }
+
+
+def test_hse_selection_includes_safe_display_title() -> None:
+    discovery = {
+        "filials": [
+            {
+                "name": "Moscow",
+                "trainingDirections": [
+                    {
+                        "educationPrograms": [
+                            {
+                                "name": "Computer Science",
+                                "educationLevel": {"code": "bachelor"},
+                                "competitiveGroups": [
+                                    {
+                                        "id": "group",
+                                        "name": "General competition",
+                                        "placeType": {"id": "budget", "name": "Budget"},
+                                        "setOfCompetitiveGroup": {"id": "set"},
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                ],
+            }
+        ]
+    }
+
+    _, title = resolve_selection_details(json.dumps(discovery).encode())
+
+    assert title == "Moscow · Computer Science · General competition · Budget"
 
 
 def test_hse_selection_rejects_stale_or_incomplete_discovery() -> None:

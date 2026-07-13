@@ -5,3 +5,5 @@ fixtures/private/
 __pycache__/
 *.egg-info/
 .codegraph
+.env
+.playwright-mcp/

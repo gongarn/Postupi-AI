@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     uid_hmac_secret: SecretStr | None = None
     telegram_bot_token: SecretStr | None = None
+    internal_api_token: SecretStr | None = None
+    internal_api_base_url: str = "http://api:8000"
     cross_university_matching_enabled: bool = False
     forecasting_enabled: bool = False
     worker_health_key: str = "postupi:worker:health"

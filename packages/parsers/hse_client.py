@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import httpx
 
-from packages.parsers.hse import HSE_API_BASE, resolve_selection
+from packages.parsers.hse import HSE_API_BASE, resolve_selection_details
 
 
 class HseFreshSnapshot:
-    def __init__(self, *, selection: dict[str, str], header: bytes, applicants: bytes) -> None:
+    def __init__(
+        self, *, selection: dict[str, str], title: str, header: bytes, applicants: bytes
+    ) -> None:
         self.selection = selection
+        self.title = title
         self.header = header
         self.applicants = applicants
 
@@ -18,7 +21,6 @@ class HseClient:
 
     async def fetch_applicants(self, **params: str | int) -> bytes:
         if set(params) != {
-            "competitiveGroupId",
             "setOfCompetitiveGroupId",
             "placeType",
             "level",
@@ -43,8 +45,8 @@ class HseClient:
     ) -> HseFreshSnapshot:
         if list_mode not in {"registration", "competition"}:
             raise ValueError("ambiguous HSE list mode")
-        discovery = await self.fetch_competitive_groups()
-        selection = resolve_selection(discovery)
+        discovery = await self.fetch_competitive_list(level="BAK")
+        selection, title = resolve_selection_details(discovery, api_level="BAK")
         header = await self.fetch_group_header(selection["competitiveGroupId"])
         sort = (
             "index_number_in_reg_list"
@@ -52,12 +54,19 @@ class HseClient:
             else "index_number_in_comp_list"
         )
         applicants = await self.fetch_applicants(
-            **selection,
+            setOfCompetitiveGroupId=selection["setOfCompetitiveGroupId"],
+            placeType=selection["placeType"],
+            level=selection["level"],
             page=0,
             size=page_size,
             sort=sort,
         )
-        return HseFreshSnapshot(selection=selection, header=header, applicants=applicants)
+        return HseFreshSnapshot(
+            selection=selection,
+            title=title,
+            header=header,
+            applicants=applicants,
+        )
 
     async def fetch_competitive_list(self, **params: str | int) -> bytes:
         return await self._request_json("/competitve-group/competitive-list", params)

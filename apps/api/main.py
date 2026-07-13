@@ -7,6 +7,7 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from apps.api.routes.internal import router as internal_router
 from apps.api.routes.system import router as system_router
 from packages.common.config import Settings, get_settings
 from packages.common.logging import configure_logging
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Postupi AI API", version="0.1.0", lifespan=lifespan)
     app.include_router(system_router)
+    app.include_router(internal_router)
 
     @app.middleware("http")
     async def request_logging(request: Request, call_next: Any) -> Any:

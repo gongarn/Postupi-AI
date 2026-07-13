@@ -8,11 +8,9 @@ Gosuslugi, cookies, or private applicant systems.
 
 ### Pilot Status
 
-ITMO is the primary pilot source and HSE is a controlled pilot-ready secondary
-source. HSE regular ingestion requires fresh in-memory discovery before every
-applicant request; unresolved discovery falls back to monitor-only. MIPT is
-monitor-only. The remaining twelve universities are deferred to 0A.2 and do
-not block MVP infrastructure.
+ITMO is the primary 2026 pilot source. HSE is a controlled 2026 pilot with a
+fresh public discovery request before each applicant-list request. The local
+pilot imports one HSE bachelor group at a time. MIPT is monitor-only.
 
 The observed 2025 identity namespace is:
 
@@ -20,8 +18,7 @@ The observed 2025 identity namespace is:
 admissions_uid:observed_cross_university:2025
 ```
 
-Cross-university matching and forecasting are disabled by default until they
-are implemented and validated.
+Cross-university matching and forecasting remain disabled by default.
 
 ### Privacy
 
@@ -32,6 +29,7 @@ are implemented and validated.
 - There is no search by another applicant's identifier.
 - Users can delete their data.
 - Forecasts are not admission guarantees.
+- HSE source response bodies are discarded after privacy-safe normalization.
 
 ### Stack
 
@@ -52,6 +50,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
+# Set POSTUPI_UID_HMAC_SECRET and POSTUPI_INTERNAL_API_TOKEN in .env.
 uvicorn apps.api.main:app --reload
 ```
 
@@ -69,6 +68,17 @@ Run the bot only with a real token in `.env`:
 docker compose --profile bot up --build -d bot
 ```
 
+The bot supports `/start`, `/help`, and `/tracks`. Use **Add direction** to
+select a university and competition group, then submit your applicant code.
+The bot sends the code only to the internal API; the API converts it to a
+namespaced HMAC before persistence.
+
+Refresh the local HSE pilot from the public source:
+
+```powershell
+docker compose run --rm --build api python -m apps.worker.hse_ingestion
+```
+
 Docker-based validation commands:
 
 ```powershell
@@ -77,15 +87,15 @@ docker compose run --rm --no-deps --build api ruff check .
 docker compose run --rm --no-deps --build api mypy apps packages
 ```
 
-Never put the ITMO raw fixture, source UIDs, credentials, or cookies in Git,
-logs, public tests, or API responses. Stage 3 will use restricted local or
-object storage for the real fixture.
+Never put raw source responses, applicant identifiers, credentials, or cookies
+in Git, logs, public tests, or API responses.
 
 ### Status
 
-The base infrastructure is available: FastAPI API, Telegram bot skeleton,
-ARQ worker, Docker Compose, PostgreSQL, Redis, health checks, JSON logging,
-and the initial data feasibility audit.
+The service includes a FastAPI API, Telegram tracking bot, internal
+token-protected target API, ARQ worker, PostgreSQL, Redis, notifications,
+health checks, JSON logging, ITMO 2026 ingestion, and a bounded HSE 2026
+pilot ingestion path.
 
 ---
 
@@ -97,9 +107,10 @@ Postupi AI — сервис для абитуриентов российских
 
 ### Статус пилота
 
-ИТМО — основной источник пилота, ВШЭ — второй источник. МФТИ работает только
-в режиме мониторинга. Остальные двенадцать вузов отложены до этапа 0A.2 и не
-блокируют инфраструктуру MVP.
+ИТМО — основной источник пилота кампании 2026. ВШЭ подключена как
+контролируемый пилот кампании 2026: перед каждым запросом списка выполняется
+свежее публичное discovery. Локальный пилот загружает по одной конкурсной
+группе ВШЭ. МФТИ работает только в режиме мониторинга.
 
 Наблюдаемый namespace идентичности для кампании 2025:
 
@@ -107,8 +118,7 @@ Postupi AI — сервис для абитуриентов российских
 admissions_uid:observed_cross_university:2025
 ```
 
-Межвузовое сопоставление и прогнозирование по умолчанию отключены до их
-реализации и валидации.
+Межвузовое сопоставление и прогнозирование по умолчанию отключены.
 
 ### Приватность
 
@@ -119,6 +129,7 @@ admissions_uid:observed_cross_university:2025
 - Поиск по чужому идентификатору отсутствует.
 - Пользователь может удалить свои данные.
 - Прогноз не является гарантией зачисления.
+- Ответы источника ВШЭ удаляются после privacy-safe нормализации.
 
 ### Стек
 
@@ -139,6 +150,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 Copy-Item .env.example .env
+# Укажите POSTUPI_UID_HMAC_SECRET и POSTUPI_INTERNAL_API_TOKEN в .env.
 uvicorn apps.api.main:app --reload
 ```
 
@@ -156,6 +168,17 @@ Invoke-RestMethod http://localhost:8000/health/ready
 docker compose --profile bot up --build -d bot
 ```
 
+Бот поддерживает `/start`, `/help` и `/tracks`. Для добавления направления
+нажмите **«Добавить направление»**, выберите вуз и конкурсную группу, затем
+отправьте код абитуриента. Бот передаёт код только во внутренний API, где он
+превращается в namespaced HMAC до сохранения.
+
+Обновление локального пилота ВШЭ из публичного источника:
+
+```powershell
+docker compose run --rm --build api python -m apps.worker.hse_ingestion
+```
+
 Команды проверки в Docker:
 
 ```powershell
@@ -164,12 +187,12 @@ docker compose run --rm --no-deps --build api ruff check .
 docker compose run --rm --no-deps --build api mypy apps packages
 ```
 
-Не добавляйте в Git, логи, публичные тесты или ответы API raw fixture ИТМО,
-исходные UID, credentials или cookies. На Этапе 3 реальный fixture будет
-храниться в ограниченном локальном или объектном хранилище.
+Не добавляйте в Git, логи, публичные тесты или ответы API исходные ответы
+источников, UID абитуриентов, credentials или cookies.
 
 ### Текущий статус
 
-Базовая инфраструктура готова: FastAPI API, skeleton Telegram-бота, ARQ
-worker, Docker Compose, PostgreSQL, Redis, health checks, JSON-логирование и
-первичный аудит пригодности источников.
+Готовы FastAPI API, Telegram-бот для отслеживания, защищённый token API для
+создания направлений, ARQ worker, PostgreSQL, Redis, уведомления, health
+checks, JSON-логирование, ingestion ИТМО 2026 и ограниченный pilot ingestion
+ВШЭ 2026.

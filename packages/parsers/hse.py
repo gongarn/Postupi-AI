@@ -35,6 +35,12 @@ HSE_APPLICANT_FIELDS = {
 
 
 def resolve_selection(content: bytes) -> dict[str, str]:
+    return resolve_selection_details(content)[0]
+
+
+def resolve_selection_details(
+    content: bytes, *, api_level: str | None = None
+) -> tuple[dict[str, str], str]:
     try:
         data = json.loads(content)
         filials = data["filials"]
@@ -45,17 +51,42 @@ def resolve_selection(content: bytes) -> dict[str, str]:
                     for group in program["competitiveGroups"]:
                         place_type = group["placeType"]
                         set_group = group["setOfCompetitiveGroup"]
+                        try:
+                            resolved_level = api_level or _api_level(level["code"])
+                        except ValueError:
+                            continue
                         values = {
                             "competitiveGroupId": group["id"],
                             "setOfCompetitiveGroupId": set_group["id"],
                             "placeType": place_type["id"],
-                            "level": level["code"],
+                            "level": resolved_level,
                         }
                         if all(isinstance(value, str) and value for value in values.values()):
-                            return values
+                            title = " · ".join(
+                                value
+                                for value in (
+                                    filial.get("name"),
+                                    program.get("name"),
+                                    group.get("name"),
+                                    place_type.get("name"),
+                                )
+                                if isinstance(value, str) and value
+                            )
+                            return values, title or "Конкурсная группа ВШЭ"
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ValueError("invalid HSE discovery response") from exc
     raise ValueError("HSE discovery contains no usable selection")
+
+
+def _api_level(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("invalid HSE education level")
+    normalized = value.strip().casefold()
+    if normalized in {"bak", "bachelor"} or normalized.startswith("бак"):
+        return "BAK"
+    if normalized in {"mag", "master"} or normalized.startswith("маг"):
+        return "MAG"
+    raise ValueError("unsupported HSE education level")
 
 
 class HseParser(BaseUniversityParser):
