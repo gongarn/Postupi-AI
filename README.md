@@ -18,14 +18,52 @@ The observed 2025 identity namespace is:
 admissions_uid:observed_cross_university:2025
 ```
 
-Cross-university matching and forecasting remain disabled by default. When
-`POSTUPI_FORECASTING_ENABLED=true`, the worker uses `probabilistic-1` only for
-ITMO groups with known per-condition seats and at least three valid snapshots.
-It runs a reproducible Monte Carlo simulation over aggregate retention of
-candidates ahead of the tracked applicant; it is not enabled for HSE.
-The existing deterministic calculation is retained as a shadow run for
-comparison. There are no claimed backtest results until final admission labels
-are available.
+Cross-university matching and forecasting remain disabled by default.
+
+### Forecasting
+
+When `POSTUPI_FORECASTING_ENABLED=true`, the worker calculates a
+`probabilistic-1` forecast after a new snapshot is processed. It is currently
+limited to ITMO groups and is skipped unless all of these conditions hold:
+
+- the tracked applicant is present in the newest valid list;
+- the group has a known positive seat count for the applicant's admission
+  condition;
+- at least three valid snapshots are available for the same competition group.
+
+HSE forecasts are deliberately disabled because reliable per-condition seat
+counts are not yet available.
+
+The model estimates the probability as follows:
+
+1. It selects candidates ranked ahead of the tracked applicant in the same
+   admission condition.
+2. It calculates historical retention from each pair of valid snapshots: how
+   many candidates in the previous list remain in the next one.
+3. It applies a Beta prior with two retained and two departed pseudo-observations
+   so limited history cannot produce an exact 0% or 100% retention estimate.
+4. It groups candidates ahead using non-identifying signals and adjusts their
+   chance of remaining: consent `+12%`, no consent `-18%`, priority 1 `+4%`,
+   and priority above 3 `-2%`.
+5. It runs 4,000 deterministic Monte Carlo simulations. Each simulation samples
+   which candidates remain, calculates the applicant's effective rank, and
+   counts an admission if that rank is within the number of seats.
+
+The central probability is the successful-simulation share. The displayed
+range uses a conservative retention interval of plus/minus 1.28 standard
+deviations: higher retention produces the lower probability bound, and lower
+retention produces the upper bound. The model also records the 10th and 90th
+percentiles of simulated effective rank.
+
+The simulation seed is derived from the snapshot, rank, seat count, and
+aggregate candidate cohorts, so identical inputs produce identical results.
+Explanations contain only aggregate counts and model parameters; they never
+contain applicant IDs, HMAC values, or source payloads.
+
+The existing `deterministic-1` heuristic is saved as a shadow run for later
+comparison. Historical retention is only a proxy for staying in a public list,
+not confirmed final enrollment; no backtest calibration is claimed until final
+admission labels are available. Forecasts are not admission guarantees.
 
 ### Privacy
 
@@ -125,14 +163,53 @@ Postupi AI — сервис для абитуриентов российских
 admissions_uid:observed_cross_university:2025
 ```
 
-Межвузовое сопоставление и прогнозирование по умолчанию отключены. При
-`POSTUPI_FORECASTING_ENABLED=true` worker использует `probabilistic-1` только
-для групп ИТМО с известным числом мест по условию поступления и минимум тремя
-valid snapshot. Модель запускает воспроизводимую Monte Carlo симуляцию по
-агрегированной удерживаемости абитуриентов выше отслеживаемого; для ВШЭ она не
-включается.
-Текущий детерминированный расчёт сохраняется как shadow-run для сравнения.
-Backtest не заявляется до появления подтверждённых итоговых данных о зачислении.
+Межвузовое сопоставление и прогнозирование по умолчанию отключены.
+
+### Прогнозирование
+
+При `POSTUPI_FORECASTING_ENABLED=true` worker рассчитывает прогноз
+`probabilistic-1` после обработки нового snapshot. Сейчас он ограничен группами
+ИТМО и не строится, если не выполнено хотя бы одно условие:
+
+- отслеживаемый абитуриент есть в последнем valid списке;
+- известно положительное число мест для его условия поступления;
+- для одной конкурсной группы есть минимум три valid snapshot.
+
+Прогнозы для ВШЭ намеренно отключены: пока нет надёжных данных о числе мест по
+каждому условию поступления.
+
+Расчёт вероятности устроен так:
+
+1. Выбираются абитуриенты, стоящие выше отслеживаемого в том же условии
+   поступления.
+2. Для каждой пары valid snapshot рассчитывается историческая удерживаемость:
+   сколько абитуриентов из предыдущего списка остаётся в следующем.
+3. Применяется Beta prior с двумя условно оставшимися и двумя условно ушедшими
+   наблюдениями, поэтому короткая история не даёт точную оценку удерживаемости
+   в 0% или 100%.
+4. Абитуриенты выше позиции группируются по неидентифицирующим признакам, а их
+   вероятность остаться корректируется так: согласие `+12%`, нет согласия
+   `-18%`, приоритет 1 `+4%`, приоритет выше 3 `-2%`.
+5. Выполняются 4 000 детерминированных Monte Carlo симуляций. В каждой случайно
+   определяется, кто остаётся в конкурсе, рассчитывается эффективная позиция
+   абитуриента и проверяется, попадает ли она в число мест.
+
+Центральная вероятность равна доле успешных симуляций. Диапазон строится по
+консервативному интервалу удерживаемости плюс-минус 1,28 стандартного
+отклонения: больше оставшихся абитуриентов даёт нижнюю границу вероятности,
+меньше оставшихся - верхнюю. Дополнительно сохраняются 10-й и 90-й перцентили
+эффективной позиции.
+
+Seed симуляции строится из snapshot, позиции, числа мест и агрегированных групп
+кандидатов, поэтому одинаковые входные данные дают одинаковый результат.
+Explanation содержит только агрегированные счётчики и параметры модели, но
+никогда не содержит ID абитуриентов, HMAC или исходные payload.
+
+Текущая эвристика `deterministic-1` сохраняется параллельно как shadow-run для
+последующего сравнения. Историческая удерживаемость означает только сохранение
+в публичном списке, а не подтверждённое итоговое зачисление; до появления таких
+данных backtest-калибровка не заявляется. Прогноз не является гарантией
+поступления.
 
 ### Приватность
 
