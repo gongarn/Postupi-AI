@@ -20,6 +20,7 @@ def test_worker_registers_separate_pipeline_jobs() -> None:
     names = {function.__name__ for function in WorkerSettings.functions}
     assert {
         "ingest_snapshot_job",
+        "ingest_itmo_batch_job",
         "diff_snapshot_job",
         "forecast_recompute_job",
         "notify_users_job",

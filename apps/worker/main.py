@@ -8,6 +8,7 @@ from apps.worker.jobs import (
     diff_snapshot_job,
     enqueue_itmo_refresh,
     forecast_recompute_job,
+    ingest_itmo_batch_job,
     ingest_snapshot_job,
     notify_users_job,
     system_ping,
@@ -24,6 +25,7 @@ async def refresh_health(ctx: dict[str, object]) -> None:
 class WorkerSettings:
     functions = [
         system_ping,
+        ingest_itmo_batch_job,
         ingest_snapshot_job,
         diff_snapshot_job,
         forecast_recompute_job,

@@ -6,7 +6,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.bot.presenters import TrackView
-from packages.forecasting.engine import PROBABILISTIC_ENGINE_VERSION
+from packages.forecasting.engine import ENGINE_VERSION, PROBABILISTIC_ENGINE_VERSION
 from packages.persistence.models import (
     ApplicationEvent,
     CompetitionGroup,
@@ -70,6 +70,7 @@ async def _view_for_target(session: AsyncSession, target: UserTarget) -> TrackVi
             select(ForecastRun)
             .where(ForecastRun.user_target_id == target.id)
             .where(ForecastRun.current_snapshot_id == snapshot.id)
+            .where(ForecastRun.engine_version.in_((ENGINE_VERSION, PROBABILISTIC_ENGINE_VERSION)))
             .order_by(
                 case((ForecastRun.engine_version == PROBABILISTIC_ENGINE_VERSION, 0), else_=1),
                 ForecastRun.id.desc(),

@@ -15,7 +15,23 @@ async def system_ping(_: object) -> dict[str, str]:
 
 
 async def enqueue_itmo_refresh(ctx: dict[str, object]) -> None:
-    await _enqueue(ctx, "ingest_snapshot_job", "itmo-refresh")
+    await _enqueue(ctx, "ingest_itmo_batch_job", "itmo-refresh")
+
+
+async def ingest_itmo_batch_job(ctx: dict[str, object]) -> dict[str, str]:
+    from apps.worker.itmo_ingestion import ingest_itmo_batch
+
+    outcomes = await ingest_itmo_batch()
+    for outcome in outcomes:
+        if outcome.snapshot_id is not None:
+            await _enqueue(
+                ctx,
+                "diff_snapshot_job",
+                f"diff:{outcome.snapshot_id}",
+                outcome.snapshot_id,
+            )
+    snapshots = sum(item.snapshot_id is not None for item in outcomes)
+    return {"status": "ingested", "snapshots": str(snapshots)}
 
 
 async def ingest_snapshot_job(

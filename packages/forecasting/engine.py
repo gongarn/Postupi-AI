@@ -7,7 +7,7 @@ from math import sqrt
 from typing import Any
 
 ENGINE_VERSION = "deterministic-1"
-PROBABILISTIC_ENGINE_VERSION = "probabilistic-1"
+PROBABILISTIC_ENGINE_VERSION = "probabilistic-2"
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,7 @@ class ForecastInput:
     local_target_signals: LocalTargetSignals
     retention_calibration: RetentionCalibration = RetentionCalibration()
     candidate_cohorts: tuple[CandidateCohort, ...] = ()
+    cross_group_excluded_ahead: int = 0
 
 
 @dataclass(frozen=True)
@@ -204,6 +205,7 @@ class ProbabilisticAdmissionEngine:
             "model": PROBABILISTIC_ENGINE_VERSION,
             "simulation_runs": self.simulation_runs,
             "candidate_count_ahead": sum(cohort.count for cohort in value.candidate_cohorts),
+            "candidate_count_cross_group_excluded": value.cross_group_excluded_ahead,
             "seat_count": value.seat_count,
             "calibrated_retention": round(mean_retention, 4),
             "retention_range": [round(retention_low, 4), round(retention_high, 4)],
@@ -215,6 +217,7 @@ class ProbabilisticAdmissionEngine:
             "central_probability": round(central_probability, 4),
             "limitations": [
                 "historical_retention_proxy_not_backtested",
+                "requires_complete_university_snapshot_batch",
                 "not_a_guarantee",
             ],
         }

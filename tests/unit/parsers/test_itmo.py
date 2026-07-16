@@ -10,6 +10,7 @@ def _fixture() -> bytes:
         "exam_scores": 240,
         "exam_type": "ege",
         "has_approved_contract": False,
+        "has_paid_contract": False,
         "highest_passageway_priority": True,
         "ia_scores": 10,
         "is_detailed_target_quota": None,
@@ -88,6 +89,8 @@ def test_itmo_parser_supports_verified_2026_contract() -> None:
     assert application.applicant_uid_hmac != raw_uid
     assert application.consent is True
     assert application.bvi is False
+    assert result.snapshot.group.priority_kind == "university_enrollment"
+    assert result.snapshot.group.priority_confidence == "strong"
 
 
 def test_itmo_parser_defaults_to_2026_live_contract() -> None:

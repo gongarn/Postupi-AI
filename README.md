@@ -23,13 +23,15 @@ Cross-university matching and forecasting remain disabled by default.
 ### Forecasting
 
 When `POSTUPI_FORECASTING_ENABLED=true`, the worker calculates a
-`probabilistic-1` forecast after a new snapshot is processed. It is currently
+`probabilistic-2` forecast after a new snapshot is processed. It is currently
 limited to ITMO groups and is skipped unless all of these conditions hold:
 
 - the tracked applicant is present in the newest valid list;
 - the group has a known positive seat count for the applicant's admission
   condition;
 - at least three valid snapshots are available for the same competition group.
+- one complete, timestamped public batch covers every tracked ITMO bachelor
+  budget group and provides verified university-wide priority semantics.
 
 HSE forecasts are deliberately disabled because reliable per-condition seat
 counts are not yet available.
@@ -37,14 +39,17 @@ counts are not yet available.
 The model estimates the probability as follows:
 
 1. It selects candidates ranked ahead of the tracked applicant in the same
-   admission condition.
+   admission condition. Candidates with a confirmed consented, higher-priority,
+   passing application in another group in the same complete ITMO batch are
+   excluded from this blocking cohort.
 2. It calculates historical retention from each pair of valid snapshots: how
    many candidates in the previous list remain in the next one.
 3. It applies a Beta prior with two retained and two departed pseudo-observations
    so limited history cannot produce an exact 0% or 100% retention estimate.
 4. It groups candidates ahead using non-identifying signals and adjusts their
    chance of remaining: consent `+12%`, no consent `-18%`, priority 1 `+4%`,
-   and priority above 3 `-2%`.
+   and priority above 3 `-2%`. A priority alone does not exclude a candidate:
+   that requires a confirmed passing, consented higher-priority alternative.
 5. It runs 4,000 deterministic Monte Carlo simulations. Each simulation samples
    which candidates remain, calculates the applicant's effective rank, and
    counts an admission if that rank is within the number of seats.
@@ -118,6 +123,12 @@ select a university and competition group, then submit your applicant code.
 The bot sends the code only to the internal API; the API converts it to a
 namespaced HMAC before persistence.
 
+Refresh every public ITMO bachelor budget group as one timestamped batch:
+
+```powershell
+docker compose run --rm --build api python -m apps.worker.itmo_ingestion
+```
+
 Refresh the local HSE pilot from the public source:
 
 ```powershell
@@ -168,12 +179,15 @@ admissions_uid:observed_cross_university:2025
 ### Прогнозирование
 
 При `POSTUPI_FORECASTING_ENABLED=true` worker рассчитывает прогноз
-`probabilistic-1` после обработки нового snapshot. Сейчас он ограничен группами
+`probabilistic-2` после обработки нового snapshot. Сейчас он ограничен группами
 ИТМО и не строится, если не выполнено хотя бы одно условие:
 
 - отслеживаемый абитуриент есть в последнем valid списке;
 - известно положительное число мест для его условия поступления;
 - для одной конкурсной группы есть минимум три valid snapshot.
+- один полный публичный batch покрывает все отслеживаемые бюджетные группы
+  бакалавриата ИТМО и содержит подтверждённую семантику университетских
+  приоритетов.
 
 Прогнозы для ВШЭ намеренно отключены: пока нет надёжных данных о числе мест по
 каждому условию поступления.
@@ -181,7 +195,9 @@ admissions_uid:observed_cross_university:2025
 Расчёт вероятности устроен так:
 
 1. Выбираются абитуриенты, стоящие выше отслеживаемого в том же условии
-   поступления.
+   поступления. Из этой группы исключаются кандидаты с подтверждённым согласием,
+   более высоким приоритетом и проходной позицией в другом направлении того же
+   полного batch ИТМО.
 2. Для каждой пары valid snapshot рассчитывается историческая удерживаемость:
    сколько абитуриентов из предыдущего списка остаётся в следующем.
 3. Применяется Beta prior с двумя условно оставшимися и двумя условно ушедшими
@@ -189,7 +205,9 @@ admissions_uid:observed_cross_university:2025
    в 0% или 100%.
 4. Абитуриенты выше позиции группируются по неидентифицирующим признакам, а их
    вероятность остаться корректируется так: согласие `+12%`, нет согласия
-   `-18%`, приоритет 1 `+4%`, приоритет выше 3 `-2%`.
+   `-18%`, приоритет 1 `+4%`, приоритет выше 3 `-2%`. Один только приоритет не
+   исключает кандидата: для этого нужен подтверждённый проходной выбор с
+   согласием на более высоком приоритете.
 5. Выполняются 4 000 детерминированных Monte Carlo симуляций. В каждой случайно
    определяется, кто остаётся в конкурсе, рассчитывается эффективная позиция
    абитуриента и проверяется, попадает ли она в число мест.
@@ -263,6 +281,13 @@ docker compose --profile bot up --build -d bot
 нажмите **«Добавить направление»**, выберите вуз и конкурсную группу, затем
 отправьте код абитуриента. Бот передаёт код только во внутренний API, где он
 превращается в namespaced HMAC до сохранения.
+
+Обновление всех публичных бюджетных групп бакалавриата ИТМО одним
+timestamped batch:
+
+```powershell
+docker compose run --rm --build api python -m apps.worker.itmo_ingestion
+```
 
 Обновление локального пилота ВШЭ из публичного источника:
 

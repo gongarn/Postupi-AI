@@ -57,12 +57,21 @@ async def persist_snapshot(
             priority_kind=parsed.group.priority_kind,
             priority_confidence=parsed.group.priority_confidence,
         )
+    else:
+        group.title = parsed.group.title
+        group.priority_kind = parsed.group.priority_kind
+        group.priority_confidence = parsed.group.priority_confidence
+        await uow.session.flush()
     existing = await uow.snapshots.get_by_content(
         competition_group_id=group.id,
         source_url=parsed.source_url,
         content_hash=parsed.content_hash,
     )
     if existing is not None:
+        ingestion_batch = parsed.raw_payload.get("ingestion_batch")
+        if isinstance(ingestion_batch, dict):
+            existing.raw_payload = {**existing.raw_payload, "ingestion_batch": ingestion_batch}
+            await uow.session.flush()
         return IngestionOutcome(
             ParserResultStatus.VALID,
             str(existing.id),

@@ -88,7 +88,7 @@ def test_probabilistic_engine_is_reproducible_and_identity_safe() -> None:
     second = ProbabilisticAdmissionEngine().calculate(value)
 
     assert first == second
-    assert first.engine_version == "probabilistic-1"
+    assert first.engine_version == "probabilistic-2"
     assert 0 <= first.probability_low <= first.probability_high <= 1
     assert "hmac-fingerprint-only" not in str(first.explanation)
 
