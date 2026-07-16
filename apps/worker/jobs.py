@@ -1,6 +1,13 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from arq import ArqRedis
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from packages.common.config import get_settings
+from packages.common.runtime import create_engine
+from packages.forecasting.recompute import recompute_probabilistic_forecasts
+from packages.persistence.uow import UnitOfWork
 
 
 async def system_ping(_: object) -> dict[str, str]:
@@ -34,6 +41,21 @@ async def forecast_recompute_job(
     ctx: dict[str, object], snapshot_id: str | None = None
 ) -> dict[str, str]:
     if snapshot_id:
+        settings = get_settings()
+        if settings.forecasting_enabled:
+            try:
+                parsed_snapshot_id = UUID(snapshot_id)
+            except ValueError:
+                return {"status": "skipped", "snapshot": snapshot_id}
+            engine = create_engine(str(settings.database_url))
+            try:
+                factory = async_sessionmaker(engine, expire_on_commit=False)
+                async with UnitOfWork(factory) as uow:
+                    await recompute_probabilistic_forecasts(
+                        uow, current_snapshot_id=parsed_snapshot_id
+                    )
+            finally:
+                await engine.dispose()
         await _enqueue(ctx, "notify_users_job", f"notify:{snapshot_id}", snapshot_id)
         return {"status": "queued", "snapshot": snapshot_id}
     return {"status": "skipped", "snapshot": "none"}

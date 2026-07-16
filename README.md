@@ -18,7 +18,14 @@ The observed 2025 identity namespace is:
 admissions_uid:observed_cross_university:2025
 ```
 
-Cross-university matching and forecasting remain disabled by default.
+Cross-university matching and forecasting remain disabled by default. When
+`POSTUPI_FORECASTING_ENABLED=true`, the worker uses `probabilistic-1` only for
+ITMO groups with known per-condition seats and at least three valid snapshots.
+It runs a reproducible Monte Carlo simulation over aggregate retention of
+candidates ahead of the tracked applicant; it is not enabled for HSE.
+The existing deterministic calculation is retained as a shadow run for
+comparison. There are no claimed backtest results until final admission labels
+are available.
 
 ### Privacy
 
@@ -118,7 +125,14 @@ Postupi AI — сервис для абитуриентов российских
 admissions_uid:observed_cross_university:2025
 ```
 
-Межвузовое сопоставление и прогнозирование по умолчанию отключены.
+Межвузовое сопоставление и прогнозирование по умолчанию отключены. При
+`POSTUPI_FORECASTING_ENABLED=true` worker использует `probabilistic-1` только
+для групп ИТМО с известным числом мест по условию поступления и минимум тремя
+valid snapshot. Модель запускает воспроизводимую Monte Carlo симуляцию по
+агрегированной удерживаемости абитуриентов выше отслеживаемого; для ВШЭ она не
+включается.
+Текущий детерминированный расчёт сохраняется как shadow-run для сравнения.
+Backtest не заявляется до появления подтверждённых итоговых данных о зачислении.
 
 ### Приватность
 

@@ -79,7 +79,10 @@ async def persist_snapshot(
         status=ParserResultStatus.VALID,
         row_count=len(parsed.applications),
         raw_storage_key=raw_key,
-        raw_payload=parsed.raw_payload,
+        raw_payload={
+            **parsed.raw_payload,
+            "seat_counts": parsed.group.seat_counts or {},
+        },
     )
     for item in parsed.applications:
         uow.session.add(

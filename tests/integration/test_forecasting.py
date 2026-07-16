@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -7,7 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.forecasting.engine import AdmissionProbabilityEngine
 from packages.forecasting.persistence import persist_forecast
-from packages.persistence.models import ForecastRun, ListSnapshot, TrackedUser, UserTarget
+from packages.forecasting.recompute import recompute_probabilistic_forecasts
+from packages.persistence.models import (
+    Application,
+    ForecastRun,
+    ListSnapshot,
+    TrackedUser,
+    University,
+    UserTarget,
+)
+from packages.persistence.repositories import CompetitionGroupRepository
 from packages.persistence.uow import UnitOfWork
 from tests.unit.forecasting.test_engine import _input
 
@@ -69,3 +78,99 @@ async def test_forecast_persistence_is_idempotent(db_session: AsyncSession) -> N
         )
         == 1
     )
+
+
+@pytest.mark.asyncio
+async def test_probabilistic_recompute_uses_three_itmo_snapshots(db_session: AsyncSession) -> None:
+    university = University(code="itmo", name="ITMO University", parser_status="active")
+    db_session.add(university)
+    await db_session.flush()
+    group = await CompetitionGroupRepository(db_session).add(
+        university_id=university.id,
+        campaign_year=2026,
+        external_group_id=f"forecast-{uuid4().hex}",
+        title="Forecast Group",
+        identity_namespace="itmo:2026:portal-code:v1",
+    )
+    started_at = datetime.now(UTC)
+    snapshots = [
+        ListSnapshot(
+            competition_group_id=group.id,
+            campaign_year=2026,
+            source_url="https://example.invalid/itmo",
+            content_hash=f"{index:x}" * 64,
+            fetched_at=started_at + timedelta(minutes=index),
+            parser_version="test",
+            status="valid",
+            row_count=3,
+            raw_storage_key=f"raw/itmo-{index}",
+            raw_payload={"seat_counts": {"general_competition": 2}},
+        )
+        for index in range(1, 4)
+    ]
+    user = TrackedUser(
+        telegram_user_id=uuid4().int % 1_000_000,
+        policy_version="v1",
+        consented_at=started_at,
+    )
+    db_session.add_all([*snapshots, user])
+    await db_session.flush()
+    target = UserTarget(
+        tracked_user_id=user.id,
+        competition_group_id=group.id,
+        identity_namespace=group.identity_namespace,
+        applicant_uid_hmac="target-hmac",
+    )
+    db_session.add(target)
+    for snapshot in snapshots:
+        db_session.add_all(
+            [
+                Application(
+                    snapshot_id=snapshot.id,
+                    competition_group_id=group.id,
+                    identity_namespace=group.identity_namespace,
+                    applicant_uid_hmac="ahead-consent",
+                    admission_condition="general_competition",
+                    rank=1,
+                    enrollment_priority=1,
+                    consent=True,
+                    competitive_score=300,
+                    application_status="active",
+                    raw_payload={},
+                ),
+                Application(
+                    snapshot_id=snapshot.id,
+                    competition_group_id=group.id,
+                    identity_namespace=group.identity_namespace,
+                    applicant_uid_hmac="target-hmac",
+                    admission_condition="general_competition",
+                    rank=2,
+                    enrollment_priority=1,
+                    consent=True,
+                    competitive_score=290,
+                    application_status="active",
+                    raw_payload={},
+                ),
+            ]
+        )
+    await db_session.flush()
+    uow = UnitOfWork(lambda: db_session)
+    uow.session = db_session
+
+    first = await recompute_probabilistic_forecasts(uow, current_snapshot_id=snapshots[-1].id)
+    second = await recompute_probabilistic_forecasts(uow, current_snapshot_id=snapshots[-1].id)
+    await db_session.commit()
+
+    forecasts = list(
+        (
+            await db_session.scalars(
+                select(ForecastRun).where(ForecastRun.user_target_id == target.id)
+            )
+        ).all()
+    )
+    assert first.created == 1
+    assert second.created == 0
+    assert len(forecasts) == 2
+    probabilistic = next(item for item in forecasts if item.engine_version == "probabilistic-1")
+    assert probabilistic.explanation["candidate_count_ahead"] == 1
+    assert "target-hmac" not in str(probabilistic.explanation)

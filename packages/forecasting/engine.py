@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import hashlib
+import random
 from dataclasses import dataclass
+from math import sqrt
 from typing import Any
 
 ENGINE_VERSION = "deterministic-1"
+PROBABILISTIC_ENGINE_VERSION = "probabilistic-1"
 
 
 @dataclass(frozen=True)
@@ -19,6 +23,19 @@ class LocalTargetSignals:
     threshold_turbulence: float = 0.0
     recent_appeared_near_target: int = 0
     recent_disappeared_near_target: int = 0
+
+
+@dataclass(frozen=True)
+class RetentionCalibration:
+    retained: int = 0
+    observations: int = 0
+    snapshot_count: int = 0
+
+
+@dataclass(frozen=True)
+class CandidateCohort:
+    count: int
+    stay_adjustment: float
 
 
 @dataclass(frozen=True)
@@ -39,6 +56,8 @@ class ForecastInput:
     data_complete: bool
     global_event_summary: GlobalEventSummary
     local_target_signals: LocalTargetSignals
+    retention_calibration: RetentionCalibration = RetentionCalibration()
+    candidate_cohorts: tuple[CandidateCohort, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -158,3 +177,101 @@ class AdmissionProbabilityEngine:
 
 def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
+
+
+class ProbabilisticAdmissionEngine:
+    """Estimate admission from aggregate retention of candidates ranked ahead."""
+
+    simulation_runs = 4_000
+
+    def calculate(self, value: ForecastInput) -> ForecastOutput:
+        self._validate(value)
+        calibration = value.retention_calibration
+        alpha = calibration.retained + 2
+        beta = calibration.observations - calibration.retained + 2
+        mean_retention = alpha / (alpha + beta)
+        standard_deviation = sqrt(alpha * beta / ((alpha + beta) ** 2 * (alpha + beta + 1)))
+        retention_low = _clamp(mean_retention - 1.28 * standard_deviation, 0.02, 0.995)
+        retention_high = _clamp(mean_retention + 1.28 * standard_deviation, 0.02, 0.995)
+
+        central_probability, effective_ranks = self._simulate(value, mean_retention, "central")
+        probability_low, _ = self._simulate(value, retention_high, "high-retention")
+        probability_high, _ = self._simulate(value, retention_low, "low-retention")
+        estimated_rank_min = _quantile(effective_ranks, 0.1)
+        estimated_rank_max = _quantile(effective_ranks, 0.9)
+        confidence = "medium" if calibration.observations >= 200 else "low"
+        explanation = {
+            "model": PROBABILISTIC_ENGINE_VERSION,
+            "simulation_runs": self.simulation_runs,
+            "candidate_count_ahead": sum(cohort.count for cohort in value.candidate_cohorts),
+            "seat_count": value.seat_count,
+            "calibrated_retention": round(mean_retention, 4),
+            "retention_range": [round(retention_low, 4), round(retention_high, 4)],
+            "calibration": {
+                "retained": calibration.retained,
+                "observations": calibration.observations,
+                "snapshot_count": calibration.snapshot_count,
+            },
+            "central_probability": round(central_probability, 4),
+            "limitations": [
+                "historical_retention_proxy_not_backtested",
+                "not_a_guarantee",
+            ],
+        }
+        return ForecastOutput(
+            probability_low=round(min(probability_low, probability_high), 4),
+            probability_high=round(max(probability_low, probability_high), 4),
+            estimated_rank_min=estimated_rank_min,
+            estimated_rank_max=estimated_rank_max,
+            confidence=confidence,
+            explanation=explanation,
+            engine_version=PROBABILISTIC_ENGINE_VERSION,
+        )
+
+    def _simulate(
+        self, value: ForecastInput, retention: float, scenario: str
+    ) -> tuple[float, list[int]]:
+        assert value.seat_count is not None
+        seed = hashlib.sha256(
+            (
+                f"{value.current_snapshot_id}:{value.rank}:{value.seat_count}:"
+                f"{value.candidate_cohorts}:{scenario}"
+            ).encode()
+        ).digest()
+        generator = random.Random(seed)
+        admitted = 0
+        effective_ranks: list[int] = []
+        for _ in range(self.simulation_runs):
+            candidates_ahead = sum(
+                sum(
+                    generator.random() < _clamp(retention + cohort.stay_adjustment, 0.02, 0.995)
+                    for _ in range(cohort.count)
+                )
+                for cohort in value.candidate_cohorts
+            )
+            effective_rank = candidates_ahead + 1
+            effective_ranks.append(effective_rank)
+            admitted += effective_rank <= value.seat_count
+        return admitted / self.simulation_runs, effective_ranks
+
+    @staticmethod
+    def _validate(value: ForecastInput) -> None:
+        if value.rank is None or value.seat_count is None or value.seat_count <= 0:
+            raise ValueError("probabilistic forecast requires rank and seat count")
+        calibration = value.retention_calibration
+        if calibration.snapshot_count < 3 or calibration.observations <= 0:
+            raise ValueError("probabilistic forecast requires three snapshots")
+        if not 0 <= calibration.retained <= calibration.observations:
+            raise ValueError("invalid retention calibration")
+        if any(
+            cohort.count <= 0 or not -1 <= cohort.stay_adjustment <= 1
+            for cohort in value.candidate_cohorts
+        ):
+            raise ValueError("invalid candidate cohort")
+
+
+def _quantile(values: list[int], quantile: float) -> int | None:
+    if not values:
+        return None
+    index = round((len(values) - 1) * quantile)
+    return sorted(values)[index]

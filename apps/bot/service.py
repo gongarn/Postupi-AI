@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.bot.presenters import TrackView
+from packages.forecasting.engine import PROBABILISTIC_ENGINE_VERSION
 from packages.persistence.models import (
     ApplicationEvent,
     CompetitionGroup,
@@ -69,7 +70,10 @@ async def _view_for_target(session: AsyncSession, target: UserTarget) -> TrackVi
             select(ForecastRun)
             .where(ForecastRun.user_target_id == target.id)
             .where(ForecastRun.current_snapshot_id == snapshot.id)
-            .order_by(ForecastRun.id.desc())
+            .order_by(
+                case((ForecastRun.engine_version == PROBABILISTIC_ENGINE_VERSION, 0), else_=1),
+                ForecastRun.id.desc(),
+            )
         )
         if snapshot is not None
         else None

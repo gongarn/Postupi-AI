@@ -4,9 +4,12 @@ import pytest
 
 from packages.forecasting.engine import (
     AdmissionProbabilityEngine,
+    CandidateCohort,
     ForecastInput,
     GlobalEventSummary,
     LocalTargetSignals,
+    ProbabilisticAdmissionEngine,
+    RetentionCalibration,
 )
 
 
@@ -69,3 +72,30 @@ def test_uncertain_input_returns_wide_low_confidence_interval() -> None:
 def test_invalid_input_is_rejected() -> None:
     with pytest.raises(ValueError, match="score out of range"):
         AdmissionProbabilityEngine().calculate(_input(competitive_score=401))
+
+
+def test_probabilistic_engine_is_reproducible_and_identity_safe() -> None:
+    value = _input(
+        retention_calibration=RetentionCalibration(
+            retained=140, observations=200, snapshot_count=3
+        ),
+        candidate_cohorts=(
+            CandidateCohort(count=5, stay_adjustment=0.12),
+            CandidateCohort(count=8, stay_adjustment=-0.18),
+        ),
+    )
+    first = ProbabilisticAdmissionEngine().calculate(value)
+    second = ProbabilisticAdmissionEngine().calculate(value)
+
+    assert first == second
+    assert first.engine_version == "probabilistic-1"
+    assert 0 <= first.probability_low <= first.probability_high <= 1
+    assert "hmac-fingerprint-only" not in str(first.explanation)
+
+
+def test_probabilistic_engine_requires_three_snapshots() -> None:
+    value = _input(
+        retention_calibration=RetentionCalibration(retained=1, observations=2, snapshot_count=2)
+    )
+    with pytest.raises(ValueError, match="three snapshots"):
+        ProbabilisticAdmissionEngine().calculate(value)
