@@ -29,6 +29,7 @@ class UniversitySource:
     forecast_eligible: bool = False
     enabled: bool = True
     refresh_minutes: int = 60
+    verify_ssl: bool = True
 
 
 SOURCES: dict[str, UniversitySource] = {}

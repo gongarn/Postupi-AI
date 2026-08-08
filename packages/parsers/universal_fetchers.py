@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import httpx
 
@@ -58,10 +58,6 @@ async def fetch_rnimu(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
                 content=doc.content,
                 source_url=url,
                 content_type="application/json",
-                metadata={
-                    "title": str(group["title"]),
-                    "group_id": str(group["file"]),
-                },
             )
         )
     return tuple(documents)
@@ -106,7 +102,7 @@ async def fetch_misis(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
     )
     documents: list[FetchedDocument] = []
     for href in hrefs:
-        url = href if href.startswith("http") else f"https://misis.ru{href.removeprefix('.')}"
+        url = urljoin(MISIS_INDEX, href)
         doc = await fetch_document(url, client=client)
         group_id = href.rsplit("id=", 1)[-1]
         documents.append(
@@ -181,8 +177,6 @@ async def fetch_msu(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
                     content=section.html.encode("utf-8", errors="replace"),
                     source_url=f"{url}#{section.anchor_id}",
                     metadata={
-                        "group_id": f"{dep.removeprefix('/rating/')}:{section.anchor_id}",
-                        "title": f"{section.program} ({section.condition})",
                         "section_anchor": section.anchor_id,
                         "section_program": section.program,
                         "section_condition": section.condition,
@@ -223,7 +217,11 @@ async def fetch_sechenov(client: httpx.AsyncClient) -> tuple[FetchedDocument, ..
     index = await fetch_document(SECHENOV_INDEX, client=client)
     html = index.content.decode("utf-8", errors="replace")
     group_ids = sorted(
-        {int(value) for value in re.findall(r"COMPETITIVE_GROUP_ID=(\d+)", html)}
+        {
+            int(value)
+            for value in re.findall(r'data-[a-z-]*group[a-z-]*="(\d+)"', html)
+            if int(value) > 0
+        }
     )
     documents: list[FetchedDocument] = []
     for group_id in group_ids:

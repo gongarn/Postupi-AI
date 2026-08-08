@@ -17,7 +17,6 @@ from packages.parsers.base import (
 )
 from packages.parsers.html_tables import (
     extract_tables,
-    header_map,
     map_condition,
     to_float,
     to_int,
@@ -114,13 +113,17 @@ class MsuSectionParser(BaseUniversityParser):
         tables = extract_tables(html)
         if not tables:
             return ParserResult(ParserResultStatus.FAILED, None, ("no tables",), ())
-        mapping, rows = header_map(max(tables, key=len))
-        if "code" not in mapping:
-            return ParserResult(ParserResultStatus.FAILED, None, ("no code column",), ())
+        data_table = next(
+            (t for t in tables if any(_looks_like_msu_data(row) for row in t)),
+            None,
+        )
+        if data_table is None:
+            return ParserResult(ParserResultStatus.FAILED, None, ("no data rows",), ())
+        rows = [row for row in data_table if _looks_like_msu_data(row)]
         applications: list[NormalizedApplication] = []
         for index, row in enumerate(rows):
-            code = _msu_code(_cell(row, mapping, "code"))
-            if not code:
+            code = _msu_code(row[1] if len(row) > 1 else None)
+            if not code or len(row) < 10:
                 continue
             applications.append(
                 NormalizedApplication(
@@ -132,17 +135,18 @@ class MsuSectionParser(BaseUniversityParser):
                     identity_namespace=self.identity_namespace,
                     admission_condition=section.condition,
                     rank=index + 1,
-                    enrollment_priority=to_int(_cell(row, mapping, "priority")),
-                    competitive_score=to_float(_cell(row, mapping, "score")),
-                    application_status=_cell(row, mapping, "status"),
-                    consent=_consent_ru(_cell(row, mapping, "consent")),
+                    enrollment_priority=to_int(_cell(row, 2)),
+                    competitive_score=to_float(_cell(row, 6)),
+                    application_status=_cell(row, len(row) - 1),
+                    consent=_consent_ru(_cell(row, len(row) - 4)),
                     raw_payload={
-                        "ovp": _cell(row, mapping, "ovp"),
-                        "vpp": _cell(row, mapping, "vpp"),
-                        "ia": to_float(_cell(row, mapping, "ia")),
-                        "score_without_ia": to_float(_cell(row, mapping, "score_no_ia")),
-                        "dorm": _cell(row, mapping, "dorm"),
-                        "advantage": _cell(row, mapping, "advantage"),
+                        "ovp": _cell(row, 3),
+                        "vpp": _cell(row, 4),
+                        "order_number": _cell(row, 5),
+                        "score_vi": to_float(_cell(row, 7)),
+                        "ia": to_float(_cell(row, 8)),
+                        "dorm": _cell(row, len(row) - 2),
+                        "advantage": _cell(row, len(row) - 3),
                     },
                 )
             )
@@ -159,8 +163,8 @@ class MsuSectionParser(BaseUniversityParser):
                 degree="bachelor",
                 financing="budget",
                 identity_namespace=self.identity_namespace,
-                priority_kind="university_enrollment" if "priority" in mapping else "unknown",
-                priority_confidence="strong" if "priority" in mapping else "unknown",
+                priority_kind="university_enrollment",
+                priority_confidence="strong",
                 seat_counts={section.condition: section.seat_count},
                 source_metadata={"source_format": "msu_section", "count": len(applications)},
             ),
@@ -193,11 +197,14 @@ def _section_from_html(html: str) -> MsuSection:
     return MsuSection("sec", "unknown", "general_competition", None, html)
 
 
-def _cell(row: list[str], mapping: dict[str, int], key: str) -> str | None:
-    index = mapping.get(key)
-    if index is None or index >= len(row):
+def _cell(row: list[str], index: int) -> str | None:
+    if index >= len(row):
         return None
     return row[index] or None
+
+
+def _looks_like_msu_data(row: list[str]) -> bool:
+    return bool(row and (row[0].isdigit() or re.fullmatch(r"\d{6,8}( \d+)?", row[1] or "")))
 
 
 def _msu_code(value: str | None) -> str | None:

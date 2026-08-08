@@ -43,6 +43,7 @@ def _register() -> None:
         name="НИТУ МИСИС",
         parser=MisisParser,
         fetcher=fetchers.fetch_misis,
+        verify_ssl=False,
     )
     SOURCES["fa"] = UniversitySource(
         code="fa",
@@ -74,11 +75,12 @@ def _register() -> None:
         name="Первый МГМУ им. И.М. Сеченова",
         parser=SechenovParser,
         fetcher=fetchers.fetch_sechenov,
+        verify_ssl=False,
     )
 
-
-_register()
 
 
 async def _disabled_fetcher(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
     raise NotImplementedError("ITMO uses its own batch ingestion")
+
+_register()

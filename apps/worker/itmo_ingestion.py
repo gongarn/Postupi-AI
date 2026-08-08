@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import re
+import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -69,9 +69,20 @@ async def ingest_itmo_batch() -> list[IngestionOutcome]:
 
 
 async def _group_ids(client: httpx.AsyncClient) -> list[str]:
-    response = await client.get(INDEX_URL)
+    # С 08.08.2026 главная страница /ratings/bachelor отдаёт «списки подавших»;
+    # список конкурсных групп берём из официального discovery API.
+    response = await client.get(
+        "https://abitlk.itmo.ru/api/v1/rating/directions?degree=bachelor"
+    )
     response.raise_for_status()
-    group_ids = sorted(set(re.findall(r"/rating/bachelor/budget/(\d+)", response.text)))
+    payload = json.loads(response.content)
+    group_ids = sorted(
+        {
+            str(item["competitive_group_id"])
+            for item in payload["result"]["items"]
+            if item.get("competitive_group_id")
+        }
+    )
     if not group_ids:
         raise RuntimeError("ITMO group index is empty")
     return group_ids

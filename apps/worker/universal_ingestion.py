@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from packages.common.config import Settings, get_settings, require_uid_hmac_secret
 from packages.common.runtime import create_engine
+from packages.parsers import sources as _sources  # noqa: F401 — регистрация реестра
 from packages.parsers.base import BaseUniversityParser, ParserResultStatus
 from packages.parsers.ingestion import IngestionOutcome, persist_snapshot
 from packages.parsers.registry import SOURCES, UniversitySource
@@ -23,20 +24,22 @@ async def ingest_all_universities() -> dict[str, list[IngestionOutcome]]:
     engine = create_engine(str(settings.database_url))
     try:
         factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            results: dict[str, list[IngestionOutcome]] = {}
-            for code in _new_university_codes(settings):
-                source = SOURCES.get(code)
-                if source is None or not source.enabled:
-                    continue
-                try:
+        results: dict[str, list[IngestionOutcome]] = {}
+        for code in _new_university_codes(settings):
+            source = SOURCES.get(code)
+            if source is None or not source.enabled:
+                continue
+            try:
+                async with httpx.AsyncClient(
+                    timeout=60, follow_redirects=True, verify=source.verify_ssl
+                ) as source_client:
                     async with UnitOfWork(factory) as uow:
-                        outcomes = await _ingest_source(uow, source, settings, client)
+                        outcomes = await _ingest_source(uow, source, settings, source_client)
                         results[code] = outcomes
-                except Exception as exc:  # noqa: BLE001 — один вуз не должен ронять цикл
-                    results[code] = [
-                        IngestionOutcome(ParserResultStatus.FAILED, None, 0, 0, (str(exc),))
-                    ]
+            except Exception as exc:  # noqa: BLE001 — один вуз не должен ронять цикл
+                results[code] = [
+                    IngestionOutcome(ParserResultStatus.FAILED, None, 0, 0, (str(exc),))
+                ]
         return results
     finally:
         await engine.dispose()
