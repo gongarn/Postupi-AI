@@ -20,6 +20,7 @@ templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
 app = FastAPI(title="Postupi AI — витрина данных", version="0.2.0")
 
+
 _groups_cache: list[GroupAggregate] | None = None
 
 
