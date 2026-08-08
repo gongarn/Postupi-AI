@@ -47,7 +47,9 @@ def test_hse_fresh_discovery_to_privacy_safe_normalization(tmp_path: Path) -> No
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/competitve-group"):
+        if request.url.path.endswith("/competitive-list"):
+            body = discovery
+        elif request.url.path.endswith("/competitve-group"):
             body = discovery
         elif request.url.path.endswith("/fresh-group"):
             body = {"placeCount": 10}

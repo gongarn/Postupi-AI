@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: SECURITY
+    url: https://github.com/gongarn/Postupi-AI/security
+    about: Уязвимости и проблемы приватности — только приватно, не публичным issue.
