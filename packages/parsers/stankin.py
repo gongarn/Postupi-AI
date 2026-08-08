@@ -34,6 +34,7 @@ _COLUMNS = {
     "advantage_9": "PROPERTY_767",
     "advantage_10": "PROPERTY_768",
     "financing": "PROPERTY_388",
+    "profile_subject": "PROPERTY_399",
 }
 
 
@@ -87,6 +88,7 @@ class StankinParser(BaseUniversityParser):
                     ),
                     identity_namespace=self.identity_namespace,
                     admission_condition=map_condition(self.title),
+                    bvi=_is_bvi(row.get("profile_subject")),
                     rank=len(applications) + 1,
                     enrollment_priority=to_int(row.get("priority")),
                     competitive_score=to_float(row.get("score")),
@@ -169,3 +171,9 @@ def _consent(value: str | None) -> bool | None:
     if value in {"Нет", "нет", "0", "-", "—"}:
         return False
     return None
+
+
+def _is_bvi(profile_subject: str | None) -> bool | None:
+    if profile_subject is None:
+        return None
+    return profile_subject in {"", "0", "0.0", "—", "-"}

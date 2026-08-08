@@ -158,6 +158,7 @@ class Application(UUIDPrimaryKeyMixin, Base):
     consent: Mapped[bool | None] = mapped_column(Boolean)
     competitive_score: Mapped[float | None] = mapped_column()
     application_status: Mapped[str | None] = mapped_column(String(128))
+    bvi: Mapped[bool | None] = mapped_column(Boolean)
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     snapshot: Mapped[ListSnapshot] = relationship(back_populates="applications")
 

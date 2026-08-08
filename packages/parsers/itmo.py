@@ -163,6 +163,7 @@ class ItmoParser(BaseUniversityParser):
             ),
             identity_namespace=self.identity_namespace,
             admission_condition=condition,
+            bvi=condition == "without_entry_tests",
             rank=int(record["position"]),
             enrollment_priority=int(record["priority"]) if record["priority"] is not None else None,
             competitive_score=(
@@ -170,7 +171,6 @@ class ItmoParser(BaseUniversityParser):
             ),
             application_status=str(record["status"]) if record["status"] is not None else None,
             consent=record["is_send_agreement"],
-            bvi=condition == "without_entry_tests",
             raw_payload=payload,
         )
 

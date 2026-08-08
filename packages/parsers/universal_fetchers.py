@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from html import unescape
 from urllib.parse import quote, urljoin
 
 import httpx
@@ -101,16 +102,26 @@ async def fetch_misis(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
             if "list/?id=" in href and "BUDJ" in href and "OKM" in href
         }
     )
+    index_html = index.content.decode("utf-8", errors="replace")
+    link_texts = {
+        link_href: unescape(re.sub(r"<[^>]+>", "", link_text)).strip()
+        for link_href, link_text in re.findall(
+            r'<a[^>]*href="([^"]*list/\?id=[^"]+)"[^>]*>(.*?)</a>',
+            index_html,
+            re.S,
+        )
+    }
     documents: list[FetchedDocument] = []
     for href in hrefs:
         url = urljoin(MISIS_INDEX, href)
         doc = await fetch_document(url, client=client)
         group_id = href.rsplit("id=", 1)[-1]
+        title = link_texts.get(href) or group_id
         documents.append(
             FetchedDocument(
                 content=doc.content,
                 source_url=url,
-                metadata={"group_id": group_id, "title": group_id},
+                metadata={"group_id": group_id, "title": title},
             )
         )
     return tuple(documents)

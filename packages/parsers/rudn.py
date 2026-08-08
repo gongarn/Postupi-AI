@@ -91,6 +91,7 @@ class RudnParser(BaseUniversityParser):
         ]
         if not applications:
             return ParserResult(ParserResultStatus.FAILED, None, ("no applications",), ())
+        title = _title_from_page(html) or self.title
         content_hash = hashlib.sha256(content).hexdigest()
         snapshot = ParsedSnapshot(
             group=NormalizedCompetitionGroup(
@@ -98,7 +99,7 @@ class RudnParser(BaseUniversityParser):
                 university_name="РУДН",
                 campaign_year=self.campaign_year,
                 external_group_id=self.group_id,
-                title=self.title,
+                title=title,
                 degree="bachelor",
                 financing=self.financing,
                 identity_namespace=self.identity_namespace,
@@ -126,6 +127,19 @@ class RudnParser(BaseUniversityParser):
             parser_version=self.parser_version,
         )
         return ParserResult(ParserResultStatus.VALID, snapshot, (), ())
+
+
+def _title_from_page(html: str) -> str | None:
+    text = unescape(re.sub(r"<[^>]+>", "\n", html))
+    text = re.sub(r"[ \t\xa0]+", " ", text)
+    match = re.search(r"Специальность\s*\n?\s*([^\n]{3,60})", text)
+    if match:
+        value = match.group(1).strip()
+        match_group = re.search(r"Конкурсная группа\s*\n?\s*([^\n]{2,50})", text)
+        if match_group:
+            return f"{value} — {match_group.group(1).strip()}"
+        return value
+    return None
 
 
 def _seat_from_page(html: str) -> int | None:

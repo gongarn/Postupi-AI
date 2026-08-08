@@ -30,11 +30,15 @@ async def export_aggregates(database_url: str, output: Path) -> int:
                                    SELECT min(a.competitive_score)
                                    FROM applications a
                                    WHERE a.snapshot_id = s.id
+                                     AND a.admission_condition IN (
+                                       'general_competition', 'paid_competition'
+                                     )
+                                     AND COALESCE(a.bvi, false) = false
+                                     AND a.competitive_score > 0
                                      AND (
-                                       a.application_status LIKE 'Включен в приказ%'
+                                       a.application_status LIKE 'Включен%в приказ%'
                                        OR a.application_status IN ('in_order', 'Зачислен')
                                      )
-                                     AND a.competitive_score > 0
                                ) AS min_enrolled_score,
                                (
                                    SELECT max(a.rank)

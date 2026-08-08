@@ -67,6 +67,7 @@ class MpeiParser(BaseUniversityParser):
                 ),
                 identity_namespace=self.identity_namespace,
                 admission_condition=map_condition(self.title),
+                bvi=_is_bvi_status(_cell(row, mapping, "status")),
                 rank=index + 1,
                 enrollment_priority=to_int(_cell(row, mapping, "priority")),
                 competitive_score=to_float(_cell(row, mapping, "score")),
@@ -132,3 +133,10 @@ def _consent(value: str | None) -> bool | None:
     if lowered in {"нет", "no", "0", "-", "—"}:
         return False
     return None
+
+
+def _is_bvi_status(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    lowered = value.lower()
+    return "бви" in lowered or "без вступительных" in lowered

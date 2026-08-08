@@ -134,6 +134,7 @@ class MsuSectionParser(BaseUniversityParser):
                     ),
                     identity_namespace=self.identity_namespace,
                     admission_condition=section.condition,
+                    bvi=section.condition == "without_entry_tests",
                     rank=index + 1,
                     enrollment_priority=to_int(_cell(row, 2)),
                     competitive_score=to_float(_cell(row, 6)),

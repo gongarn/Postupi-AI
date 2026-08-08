@@ -106,6 +106,7 @@ async def persist_snapshot(
                 competitive_score=item.competitive_score,
                 application_status=item.application_status,
                 consent=item.consent,
+                bvi=item.bvi,
                 raw_payload=item.raw_payload,
             )
         )
