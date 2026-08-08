@@ -50,10 +50,11 @@ async def recompute_probabilistic_forecasts(
             .where(CompetitionGroup.id == snapshot.competition_group_id)
         )
     ).one()
+    from packages.parsers import sources as _sources  # noqa: F401 — регистрация реестра
     from packages.parsers.registry import SOURCES
 
     source = SOURCES.get(university.code)
-    if source is None or not source.forecast_eligible:
+    if source is not None and not source.forecast_eligible:
         return ForecastRecomputeOutcome(reason="university_not_eligible")
 
     coverage = await _university_coverage(uow, group, snapshot)
