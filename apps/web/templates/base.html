@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Postupi AI{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">Postupi&nbsp;AI</a>
+    <nav>
+      <a href="/">Вузы</a>
+      <a href="/data">Данные</a>
+      <a href="https://github.com/gongarn/Postupi-AI" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer>
+    Бесплатный open source (MIT). Только публичные данные. Прогноз не является
+    гарантией зачисления.
+  </footer>
+</body>
+</html>

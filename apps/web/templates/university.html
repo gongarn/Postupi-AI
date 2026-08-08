@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ name }} — Postupi AI{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/">Вузы</a> → {{ name }}</nav>
+<h1>{{ name }}</h1>
+<table>
+  <thead>
+    <tr>
+      <th>Конкурсная группа</th>
+      <th>Проходной балл</th>
+      <th>Мест (общий конкурс)</th>
+      <th>Заявлений</th>
+      <th>Snapshot</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in groups %}
+    <tr>
+      <td>{{ g.group_title }}</td>
+      <td><b>{{ g.score_display }}</b></td>
+      <td>{{ g.seats_display }}</td>
+      <td>{{ g.applications }}</td>
+      <td class="muted">{{ g.snapshot_date[:10] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

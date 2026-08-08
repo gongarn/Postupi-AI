@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Вузы — Postupi AI{% endblock %}
+{% block content %}
+<h1>Проходные баллы 2026 по вузам</h1>
+<p>Агрегаты из публичных конкурсных списков. {{ total_groups }} конкурсных групп,
+обновлено 08.08.2026.</p>
+{% for code, groups in universities %}
+<section>
+  <h2><a href="/vuz/{{ code }}">{{ groups[0].university_name }}</a>
+    <small>{{ groups|length }} групп</small></h2>
+  <ul class="compact">
+    {% for g in groups[:5] %}
+    <li>{{ g.group_title }} — проходной: <b>{{ g.score_display }}</b></li>
+    {% endfor %}
+    {% if groups|length > 5 %}<li>… и ещё {{ groups|length - 5 }}</li>{% endif %}
+  </ul>
+</section>
+{% else %}
+<p>Данные ещё не загружены. Запустите <code>apps/tools/export_aggregates.py</code>.</p>
+{% endfor %}
+{% endblock %}

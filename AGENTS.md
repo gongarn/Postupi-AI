@@ -54,6 +54,9 @@ Postupi AI — сервис для абитуриентов российских
 ```text
 apps/
   api/                    # FastAPI: main, dependencies, healthcheck.
+  web/                    # Сайт-витрина (SSR): main, templates/, static/.
+                          # Страницы /, /vuz/<code>, /data — на агрегатах
+                          # data/aggregates_2026.csv (без БД).
     routes/
       internal.py         # Token-protected внутренний API (группы, user targets).
       system.py           # /, /health/live, /health/ready.
