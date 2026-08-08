@@ -1,5 +1,13 @@
 # Postupi AI
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Roadmap](https://img.shields.io/badge/roadmap-ROADMAP.md-blue)](ROADMAP.md)
+
+Бесплатный open source сервис анализа шансов поступления по публичным
+конкурсным спискам. Никакого сбора персональных данных, никаких «чёрных
+ящиков»: только публичные источники, HMAC-приватность и прозрачная
+Monte Carlo-модель. Подробности — в [ROADMAP.md](ROADMAP.md).
+
 ## English
 
 Postupi AI is a service for applicants to Russian universities. It analyzes
@@ -312,3 +320,17 @@ docker compose run --rm --no-deps --build api mypy apps packages
 создания направлений, ARQ worker, PostgreSQL, Redis, уведомления, health
 checks, JSON-логирование, ingestion ИТМО 2026 и ограниченный pilot ingestion
 ВШЭ 2026.
+
+### Open Source
+
+Проект распространяется под лицензией MIT и остаётся бесплатным навсегда.
+
+- [ROADMAP.md](ROADMAP.md) — план развития до кампании 2027 и дальше.
+- [AGENTS.md](AGENTS.md) — архитектура, инварианты и правила разработки.
+- Код можно копировать, изучать и поднимать свой инстанс (лицензия MIT
+  покрывает код; бренд «Postupi AI», домен и официальные боты остаются
+  под контролем мейнтейнеров).
+- Данные собираются только из публичных источников; архивы конкурсных
+  списков планируется публиковать открыто (CSV/JSON).
+- Прогноз не является гарантией зачисления — мы не продаём и не обещаем
+  «гарантий».
