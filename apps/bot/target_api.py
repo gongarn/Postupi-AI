@@ -20,9 +20,15 @@ class CompetitionGroup:
     title: str
 
 
-async def list_competition_groups(*, base_url: str, token: str) -> list[CompetitionGroup]:
+async def list_competition_groups(
+    *, base_url: str, token: str, q: str = ""
+) -> list[CompetitionGroup]:
     async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
-        response = await client.get("/internal/competition-groups", headers=_headers(token))
+        response = await client.get(
+            "/internal/competition-groups",
+            params={"q": q} if q else None,
+            headers=_headers(token),
+        )
     _raise_for_error(response)
     return [
         CompetitionGroup(

@@ -57,6 +57,42 @@ async def help_command(message: Message) -> None:
     await message.answer(help_text())
 
 
+@router.message(Command("find"))
+async def find_group(message: Message) -> None:
+    query = (message.text or "").removeprefix("/find").strip()
+    if not query:
+        await message.answer(
+            "Напишите так: /find программная инженерия — и я найду "
+            "направления по названию."
+        )
+        return
+    settings = get_settings()
+    if settings.internal_api_token is None:
+        await message.answer("Сервис временно недоступен", )
+        return
+    try:
+        groups = await list_competition_groups(
+            base_url=settings.internal_api_base_url,
+            token=settings.internal_api_token.get_secret_value(),
+            q=query,
+        )
+    except TargetAPIError:
+        await message.answer("Сервис временно недоступен", )
+        return
+    if not groups:
+        await message.answer(f"Ничего не найдено по запросу «{query}».")
+        return
+    await message.answer(
+        "Найденные направления:\n" + "\n".join(
+            f"{index}. {group.university_name} — {group.title}"
+            for index, group in enumerate(groups[:10], start=1)
+        ),
+        reply_markup=competition_groups_keyboard(
+            [(str(group.id), f"{group.university_name} — {group.title}") for group in groups[:10]]
+        ),
+    )
+
+
 @router.message(Command("tracks"))
 async def tracks(message: Message) -> None:
     async with _session_factory()() as session:

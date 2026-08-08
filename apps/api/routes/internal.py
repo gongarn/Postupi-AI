@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
@@ -50,15 +50,24 @@ def require_internal_token(
 async def list_competition_groups(
     engine: Annotated[AsyncEngine, Depends(get_engine)],
     _: Annotated[None, Depends(require_internal_token)],
+    q: str = "",
 ) -> list[CompetitionGroupResponse]:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
-        result = await session.execute(
+        statement = (
             select(CompetitionGroup, University)
             .join(University, CompetitionGroup.university_id == University.id)
             .where(~University.code.startswith("test-"))
-            .order_by(University.name, CompetitionGroup.title)
         )
+        if q.strip():
+            pattern = f"%{q.strip()}%"
+            statement = statement.where(
+                or_(
+                    CompetitionGroup.title.ilike(pattern),
+                    University.name.ilike(pattern),
+                )
+            )
+        result = await session.execute(statement.order_by(University.name, CompetitionGroup.title))
         return [
             CompetitionGroupResponse(
                 id=group.id,
