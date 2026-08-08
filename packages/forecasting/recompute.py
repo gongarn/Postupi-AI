@@ -229,7 +229,8 @@ def _calibrations(
 ) -> dict[str, RetentionCalibration]:
     observations: Counter[str] = Counter()
     retained: Counter[str] = Counter()
-    for previous, current in zip(history, history[1:], strict=True):
+    # zip обрезает по меньшей длине: ровно len(history) - 1 пар соседей
+    for previous, current in zip(history, history[1:], strict=False):
         previous_by_condition = _uids_by_condition(applications[previous.id])
         current_by_condition = _uids_by_condition(applications[current.id])
         for condition, previous_uids in previous_by_condition.items():
