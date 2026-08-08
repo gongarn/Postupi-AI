@@ -134,3 +134,16 @@ def test_sechenov_fixture() -> None:
         "https://priem.sechenov.ru/.../applications.php",
     )
     _assert_valid(result, expected_min=5)
+
+
+@pytest.mark.private_fixture
+def test_gubkin_fixture() -> None:
+    from packages.parsers.gubkin import GubkinParser
+
+    result = _parse(
+        GubkinParser(uid_secret="test-secret", group_id="2443", title="Конкурсная группа 5"),
+        _fixture("gubkin_group_2443.json"),
+        "https://transfer.priem.gubkin.ru/.../api.php?method=get",
+    )
+    _assert_valid(result, expected_min=100)
+    assert any(item.consent is not None for item in result.snapshot.applications)

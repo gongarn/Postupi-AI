@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from urllib.parse import quote, urljoin
@@ -238,4 +239,71 @@ async def fetch_sechenov(client: httpx.AsyncClient) -> tuple[FetchedDocument, ..
                 metadata={"group_id": str(group_id), "title": str(group_id)},
             )
         )
+    return tuple(documents)
+
+
+GUBKIN_API = "https://transfer.priem.gubkin.ru/abiturients_list/api/api.php"
+
+
+async def _gubkin(client: httpx.AsyncClient, **params: str) -> FetchedDocument:
+    url = f"{GUBKIN_API}?act=search&{'&'.join(f'{k}={v}' for k, v in params.items())}"
+    return await fetch_document(url, client=client, content_type="application/json")
+
+
+async def fetch_gubkin(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    from packages.parsers.html_tables import map_condition
+
+    form = json.loads((await _gubkin(client, method="getForm")).content)["data"]
+    if not form:
+        return ()
+    faculties = json.loads(
+        (await _gubkin(client, method="getFaculties", educationFormId="1")).content
+    )["data"]
+    bachelor = next(
+        (item for item in faculties if "акалавр" in str(item.get("name", ""))),
+        None,
+    )
+    if bachelor is None:
+        return ()
+    groups = json.loads(
+        (await _gubkin(
+            client, method="getGroups", educationFormId="1", facultyId=str(bachelor["id"])
+        )).content
+    )["data"]
+    documents: list[FetchedDocument] = []
+    semaphore = asyncio.Semaphore(6)
+
+    async def fetch_group(group: dict[str, object]) -> None:
+        async with semaphore:
+            types = json.loads(
+                (
+                    await _gubkin(
+                        client, method="getEducationTypes", contestGroupId=str(group["id"])
+                    )
+                ).content
+            )["data"]
+            # основной конкурс («Основные места в рамках КЦП») — id=1;
+            # квоты — отдельными snapshot'ами
+            selected = [item for item in types if item.get("id") == 1] or types[:1]
+            for item in selected:
+                url = (
+                    f"{GUBKIN_API}?act=search&method=get"
+                    f"&educationTypeId={item['id']}&contestGroupId={group['id']}"
+                )
+                doc = await fetch_document(url, client=client, content_type="application/json")
+                condition = map_condition(str(item.get("name", "")))
+                documents.append(
+                    FetchedDocument(
+                        content=doc.content,
+                        source_url=url,
+                        content_type="application/json",
+                        metadata={
+                            "group_id": str(group["id"]),
+                            "title": str(group.get("name") or group["id"]),
+                            "condition": condition,
+                        },
+                    )
+                )
+
+    await asyncio.gather(*(fetch_group(group) for group in groups))
     return tuple(documents)

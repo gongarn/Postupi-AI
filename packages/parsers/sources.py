@@ -4,6 +4,7 @@ import httpx
 
 from packages.parsers import universal_fetchers as fetchers
 from packages.parsers.fa import FaParser
+from packages.parsers.gubkin import GubkinParser
 from packages.parsers.itmo import ItmoParser
 from packages.parsers.misis import MisisParser
 from packages.parsers.mpei import MpeiParser
@@ -56,6 +57,13 @@ def _register() -> None:
         name="МГТУ СТАНКИН",
         parser=StankinParser,
         fetcher=fetchers.fetch_stankin,
+    )
+    SOURCES["gubkin"] = UniversitySource(
+        code="gubkin",
+        name="РГУ нефти и газа им. И.М. Губкина",
+        parser=GubkinParser,
+        fetcher=fetchers.fetch_gubkin,
+        refresh_minutes=180,
     )
     SOURCES["msu"] = UniversitySource(
         code="msu",
