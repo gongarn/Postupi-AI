@@ -94,6 +94,7 @@ async def _view_for_target(session: AsyncSession, target: UserTarget) -> TrackVi
         campaign_year=group.campaign_year,
         title=group.title,
         snapshot_status=snapshot.status if snapshot is not None else "нет snapshot",
+        snapshot_date=snapshot.fetched_at.strftime("%d.%m %H:%M") if snapshot is not None else None,
         probability_low=forecast.probability_low if forecast else None,
         probability_high=forecast.probability_high if forecast else None,
         confidence=forecast.confidence if forecast else None,

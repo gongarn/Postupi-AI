@@ -12,6 +12,7 @@ class TrackView:
     campaign_year: int
     title: str
     snapshot_status: str
+    snapshot_date: str | None
     probability_low: float | None
     probability_high: float | None
     confidence: str | None
@@ -34,9 +35,11 @@ def help_text() -> str:
         "/start — описание бота\n"
         "/tracks — мои направления\n"
         "/help — эта справка\n\n"
-        "Сейчас доступны только сохранённые направления ITMO и текущие snapshots. "
-        "Автоматического мониторинга, уведомлений и cross-university matching нет.\n\n"
-        "Вероятность является детерминированной оценкой, а не гарантией зачисления."
+        "Доступны направления по 11 вузам: ИТМО, ВШЭ, МГУ, МЭИ, РНИМУ, МИСИС, "
+        "РУДН, МГТУ СТАНКИН, Финансовый университет, Сеченовский и Губкинский "
+        "университеты. При включённом прогнозировании приходят уведомления о "
+        "значимых изменениях.\n\n"
+        "Вероятность является оценкой, а не гарантией зачисления."
     )
 
 
@@ -62,6 +65,7 @@ def track_detail_text(view: TrackView) -> str:
         f"{view.university_name}: {view.title}",
         f"Группа: {view.external_group_id}; кампания: {view.campaign_year}",
         f"Текущий snapshot: {view.snapshot_status}",
+        f"Дата списка: {view.snapshot_date or 'нет данных'}",
         f"Вероятность: {_probability(view)}",
         f"Уверенность: {view.confidence or 'unknown'}",
         "",

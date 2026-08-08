@@ -77,6 +77,57 @@ async def napravlenie(request: Request, group_id: str) -> HTMLResponse:
     )
 
 
+@app.get("/data/aggregates.json")
+async def aggregates_json() -> dict[str, object]:
+    groups = _groups()
+    return {
+        "campaign_year": 2026,
+        "updated_at": max(g.snapshot_date for g in groups) if groups else None,
+        "count": len(groups),
+        "groups": [
+            {
+                "university": g.university,
+                "university_name": g.university_name,
+                "group_title": g.group_title,
+                "passing_score": g.min_enrolled_score,
+                "applications": g.applications,
+                "seats": g.seats_display,
+            }
+            for g in groups
+        ],
+    }
+
+
+@app.get("/api/universities")
+async def api_universities() -> list[dict[str, object]]:
+    by_university = groups_by_university(_groups())
+    return [
+        {
+            "code": code,
+            "name": items[0].university_name,
+            "groups": len(items),
+        }
+        for code, items in sorted(by_university.items())
+    ]
+
+
+@app.get("/api/groups")
+async def api_groups(university: str = "") -> list[dict[str, object]]:
+    groups = _groups()
+    if university:
+        groups = [g for g in groups if g.university == university]
+    return [
+        {
+            "id": g.id,
+            "university": g.university,
+            "group_title": g.group_title,
+            "passing_score": g.min_enrolled_score,
+            "applications": g.applications,
+        }
+        for g in groups
+    ]
+
+
 @app.get("/data", response_class=HTMLResponse)
 async def data_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "data.html", {})

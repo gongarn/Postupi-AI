@@ -12,6 +12,7 @@ def _view() -> TrackView:
         campaign_year=2025,
         title="Synthetic Program",
         snapshot_status="valid",
+        snapshot_date="08.08 18:00",
         probability_low=0.25,
         probability_high=0.75,
         confidence="medium",

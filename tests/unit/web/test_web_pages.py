@@ -58,3 +58,26 @@ def test_napravlenie_page(client: TestClient) -> None:
 def test_napravlenie_unknown(client: TestClient) -> None:
     response = client.get("/napravlenie/deadbeef0000")
     assert response.status_code == 404
+
+
+def test_aggregates_json(client: TestClient) -> None:
+    response = client.get("/data/aggregates.json")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] > 0
+    first = data["groups"][0]
+    assert "university" in first and "group_title" in first
+
+
+def test_api_universities(client: TestClient) -> None:
+    response = client.get("/api/universities")
+    assert response.status_code == 200
+    codes = {item["code"] for item in response.json()}
+    assert "itmo" in codes
+
+
+def test_api_groups_filtered(client: TestClient) -> None:
+    response = client.get("/api/groups", params={"university": "itmo"})
+    assert response.status_code == 200
+    items = response.json()
+    assert items and all(item["university"] == "itmo" for item in items)
