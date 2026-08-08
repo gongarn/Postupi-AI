@@ -4,6 +4,21 @@
 Детализирует недели 0–1 из `docs/plan-2027.md`; парсеры недель 1–8 уже
 готовы, поэтому окно свободно.
 
+## Статус (08.08.2026, вечер)
+
+- [x] CI: `.github/workflows/ci.yml` (lint/typecheck/test) — **зелёный**
+- [x] Починены предсуществующие баги, найденные CI:
+      HSE-тест (handler не матчил `/competitive-list`); `zip(strict=True)`
+      в retention calibration — ломал все прогнозы
+- [x] Агрегаты: `apps/tools/export_aggregates.py` → `data/aggregates_2026.csv`
+      (635 групп, 390 с проходными зачисленных)
+- [x] Шаблоны Issues: 4 шаблона + config
+- [x] Релиз **v0.1.0** опубликован (тег + релиз-ноут)
+- [x] Подготовка калибровки: `apps/tools/hash_labels.py` — метки ИТМО
+      (1293) → HMAC (`fixtures/private/orders_itmo_2026_hmac.csv`)
+- [ ] Калибровка v0 — после прогона C (13–16 авг): прогнозы на прогоне B
+      + HMAC-метки → calibration curve, Brier
+
 ## Задача 1 — CI на GitHub Actions (0.5–1 день)
 
 Блокер для всего остального: без зелёного CI релиз 0.1 и PR-процесс
