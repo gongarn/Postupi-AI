@@ -8,6 +8,20 @@
 ящиков»: только публичные источники, HMAC-приватность и прозрачная
 Monte Carlo-модель. Подробности — в [ROADMAP.md](ROADMAP.md).
 
+## Сайт (витрина данных)
+
+Публичная витрина проходных баллов 2026:
+
+**https://postupi-ai.vercel.app**
+
+- `/` — поиск по вузам и направлениям
+- `/vuz/<code>` — конкурсные группы вуза
+- `/napravlenie/<id>` — детали направления (проходной, места, конкурс)
+- `/data/aggregates_2026.csv` — открытые агрегаты (без кодов и ФИО)
+
+Деплой: Vercel (serverless, FastAPI через `api/index.py`). При покупке домена
+сайт переносится на него + свой сервер (см. `docs/plan-2027.md`).
+
 ## English
 
 Postupi AI is a service for applicants to Russian universities. It analyzes
