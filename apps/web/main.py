@@ -7,12 +7,18 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from packages.aggregates import DATA_FILE, GroupAggregate, groups_by_university, load_groups
+from packages.aggregates import (
+    DATA_FILE,
+    GroupAggregate,
+    groups_by_university,
+    load_groups,
+    search_groups,
+)
 
 WEB_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 
-app = FastAPI(title="Postupi AI — витрина данных", version="0.1.0")
+app = FastAPI(title="Postupi AI — витрина данных", version="0.2.0")
 
 _groups_cache: list[GroupAggregate] | None = None
 
@@ -24,15 +30,24 @@ def _groups() -> list[GroupAggregate]:
     return _groups_cache
 
 
+def _by_id() -> dict[str, GroupAggregate]:
+    return {group.id: group for group in _groups()}
+
+
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request) -> HTMLResponse:
-    groups = _groups()
+async def index(request: Request, q: str = "") -> HTMLResponse:
+    groups = search_groups(_groups(), q)
     by_university = groups_by_university(groups)
     universities = sorted(by_university.items(), key=lambda item: item[1][0].university_name)
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"universities": universities, "total_groups": len(groups)},
+        {
+            "universities": universities,
+            "total_groups": len(_groups()),
+            "shown_groups": len(groups),
+            "query": q,
+        },
     )
 
 
@@ -46,6 +61,18 @@ async def university(request: Request, code: str) -> HTMLResponse:
         request,
         "university.html",
         {"code": code, "name": groups[0].university_name, "groups": groups},
+    )
+
+
+@app.get("/napravlenie/{group_id}", response_class=HTMLResponse)
+async def napravlenie(request: Request, group_id: str) -> HTMLResponse:
+    group = _by_id().get(group_id)
+    if group is None:
+        raise HTTPException(status_code=404, detail="group not found")
+    return templates.TemplateResponse(
+        request,
+        "napravlenie.html",
+        {"group": group},
     )
 
 

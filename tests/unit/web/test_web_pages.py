@@ -32,3 +32,29 @@ def test_data_page(client: TestClient) -> None:
     response = client.get("/data")
     assert response.status_code == 200
     assert "aggregates_2026.csv" in response.text
+
+
+def test_search_filters_groups(client: TestClient) -> None:
+    response = client.get("/", params={"q": "программная инженерия"})
+    assert response.status_code == 200
+    assert "Найдено групп" in response.text
+
+
+def test_search_empty_result(client: TestClient) -> None:
+    response = client.get("/", params={"q": "zzzz-не-существует"})
+    assert response.status_code == 200
+    assert "Ничего не найдено" in response.text
+
+
+def test_napravlenie_page(client: TestClient) -> None:
+    from packages.aggregates import load_groups
+
+    group = load_groups()[0]
+    response = client.get(f"/napravlenie/{group.id}")
+    assert response.status_code == 200
+    assert group.group_title[:20] in response.text
+
+
+def test_napravlenie_unknown(client: TestClient) -> None:
+    response = client.get("/napravlenie/deadbeef0000")
+    assert response.status_code == 404

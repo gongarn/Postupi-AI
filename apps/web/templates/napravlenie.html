@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ group.group_title }} — проходной балл 2026 — Postupi AI{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/">Вузы</a> →
+  <a href="/vuz/{{ group.university }}">{{ group.university_name }}</a> →
+  {{ group.group_title }}</nav>
+<h1>{{ group.group_title }}</h1>
+<dl class="facts">
+  <div><dt>Вуз</dt><dd>{{ group.university_name }}</dd></div>
+  <div><dt>Проходной балл (зачисленные, без БВИ)</dt><dd><b>{{ group.score_display }}</b></dd></div>
+  <div><dt>Заявлений в финальном списке</dt><dd>{{ group.applications }}</dd></div>
+  <div><dt>Мест (общий конкурс)</dt><dd>{{ group.seats_display }}</dd></div>
+  <div><dt>Snapshot</dt><dd class="muted">{{ group.snapshot_date }}</dd></div>
+</dl>
+<p class="muted">Данные: публичный конкурсный список кампании 2026. Прогноз
+не является гарантией зачисления.</p>
+{% endblock %}

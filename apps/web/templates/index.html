@@ -1,21 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Вузы — Postupi AI{% endblock %}
+{% block title %}Вузы и проходные баллы 2026 — Postupi AI{% endblock %}
 {% block content %}
 <h1>Проходные баллы 2026 по вузам</h1>
 <p>Агрегаты из публичных конкурсных списков. {{ total_groups }} конкурсных групп,
 обновлено 08.08.2026.</p>
+<form method="get" action="/" class="search">
+  <input type="search" name="q" value="{{ query }}" placeholder="Вуз или направление, например: программная инженерия"
+         autofocus>
+  <button type="submit">Найти</button>
+</form>
+{% if query %}<p class="muted">Найдено групп: {{ shown_groups }}</p>{% endif %}
 {% for code, groups in universities %}
 <section>
   <h2><a href="/vuz/{{ code }}">{{ groups[0].university_name }}</a>
-    <small>{{ groups|length }} групп</small></h2>
+    <small>{{ groups|length }} гр.</small></h2>
   <ul class="compact">
-    {% for g in groups[:5] %}
-    <li>{{ g.group_title }} — проходной: <b>{{ g.score_display }}</b></li>
+    {% for g in groups[:6] %}
+    <li><a href="/napravlenie/{{ g.id }}">{{ g.group_title }}</a> —
+      проходной: <b>{{ g.score_display }}</b>
+      {% if g.min_enrolled_score is none %}<span class="muted">(нет данных)</span>{% endif %}
+    </li>
     {% endfor %}
-    {% if groups|length > 5 %}<li>… и ещё {{ groups|length - 5 }}</li>{% endif %}
+    {% if groups|length > 6 %}<li>… и ещё {{ groups|length - 6 }}</li>{% endif %}
   </ul>
 </section>
 {% else %}
-<p>Данные ещё не загружены. Запустите <code>apps/tools/export_aggregates.py</code>.</p>
+<p>Ничего не найдено по запросу «{{ query }}».</p>
 {% endfor %}
 {% endblock %}

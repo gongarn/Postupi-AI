@@ -19,6 +19,12 @@ UNIVERSITY_NAMES = {
 }
 
 
+def group_id(university: str, group_title: str) -> str:
+    import hashlib
+
+    return hashlib.sha1(f"{university}:{group_title}".encode()).hexdigest()[:12]
+
+
 @dataclass(frozen=True)
 class GroupAggregate:
     university: str
@@ -33,6 +39,10 @@ class GroupAggregate:
     @property
     def university_name(self) -> str:
         return UNIVERSITY_NAMES.get(self.university, self.university)
+
+    @property
+    def id(self) -> str:
+        return group_id(self.university, self.group_title)
 
     @property
     def seats_display(self) -> str:
@@ -87,3 +97,16 @@ def groups_by_university(groups: list[GroupAggregate]) -> dict[str, list[GroupAg
     for items in by_university.values():
         items.sort(key=lambda item: (item.min_enrolled_score is None, item.group_title))
     return by_university
+
+
+def search_groups(groups: list[GroupAggregate], query: str) -> list[GroupAggregate]:
+    query = query.strip().lower()
+    if not query:
+        return groups
+    return [
+        group
+        for group in groups
+        if query in group.group_title.lower()
+        or query in group.university_name.lower()
+        or query in group.university.lower()
+    ]
