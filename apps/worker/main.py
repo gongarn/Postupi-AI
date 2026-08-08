@@ -10,6 +10,7 @@ from apps.worker.jobs import (
     forecast_recompute_job,
     ingest_itmo_batch_job,
     ingest_snapshot_job,
+    ingest_universities_job,
     notify_users_job,
     system_ping,
 )
@@ -26,12 +27,17 @@ class WorkerSettings:
     functions = [
         system_ping,
         ingest_itmo_batch_job,
+        ingest_universities_job,
         ingest_snapshot_job,
         diff_snapshot_job,
         forecast_recompute_job,
         notify_users_job,
     ]
-    cron_jobs = [cron(refresh_health, second={0}), cron(enqueue_itmo_refresh, minute={0})]
+    cron_jobs = [
+        cron(refresh_health, second={0}),
+        cron(enqueue_itmo_refresh, minute={0}),
+        cron(ingest_universities_job, minute={30}),
+    ]
     health_check_interval = 10
     max_jobs = 5
     max_tries = 3

@@ -7,3 +7,5 @@ __pycache__/
 .codegraph
 .env
 .playwright-mcp/
+.pi-subagents/
+.venv/

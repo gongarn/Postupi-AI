@@ -10,6 +10,24 @@ from packages.forecasting.recompute import recompute_probabilistic_forecasts
 from packages.persistence.uow import UnitOfWork
 
 
+async def ingest_universities_job(ctx: dict[str, object]) -> dict[str, str]:
+    from apps.worker.universal_ingestion import ingest_all_universities
+
+    outcomes = await ingest_all_universities()
+    created = 0
+    for _, items in outcomes.items():
+        for outcome in items:
+            if outcome.snapshot_id is not None:
+                created += 1
+                await _enqueue(
+                    ctx,
+                    "diff_snapshot_job",
+                    f"diff:{outcome.snapshot_id}",
+                    outcome.snapshot_id,
+                )
+    return {"status": "ingested", "universities": str(len(outcomes)), "snapshots": str(created)}
+
+
 async def system_ping(_: object) -> dict[str, str]:
     return {"status": "ok", "timestamp": datetime.now(UTC).isoformat()}
 

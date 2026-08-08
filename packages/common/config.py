@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     internal_api_base_url: str = "http://api:8000"
     cross_university_matching_enabled: bool = False
     forecasting_enabled: bool = False
+    active_universities: str = "itmo,hse,mipt"
     worker_health_key: str = "postupi:worker:health"
     worker_health_max_age_seconds: int = Field(default=60, ge=5, le=3600)
 
@@ -33,3 +34,10 @@ def require_uid_hmac_secret(settings: Settings) -> str:
     if not value:
         raise ValueError("POSTUPI_UID_HMAC_SECRET must not be empty")
     return value
+
+
+def active_university_codes(settings: Settings) -> list[str]:
+    from packages.parsers.registry import SOURCES
+
+    codes = [item.strip() for item in settings.active_universities.split(",") if item.strip()]
+    return codes or list(SOURCES)

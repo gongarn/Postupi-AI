@@ -67,15 +67,20 @@ apps/
     delivery.py           # Доставка pending-уведомлений через Telegram.
     runtime.py            # Глобальная session_factory для бота.
   worker/                 # ARQ.
-    main.py               # WorkerSettings, cron: health + почасовой refresh ИТМО.
+    main.py               # WorkerSettings, cron: health + почасовой refresh ИТМО
+                          # + ingest_universities_job (полчаса).
     jobs.py               # Цепочка ingest → diff → forecast → notify.
     itmo_ingestion.py     # Полный batch ИТМО одним timestamped batch.
     hse_ingestion.py      # Локальный пилот ВШЭ с fresh discovery.
+    universal_ingestion.py# Общий ингейшн вузов из реестра (кроме ИТМО/ВШЭ/МФТИ).
 packages/
   common/                 # config (Settings, env_prefix POSTUPI_), logging, runtime, uid.
   forecasting/            # engine, features, persistence, recompute.
   notifications/          # policy, service.
   parsers/                # base, itmo, hse, hse_client, ingestion, storage.
+                          # registry (реестр источников), fetchers, html_tables,
+                          # sources (сборка реестра), universal_fetchers,
+                          # rnimu/mpei/misis/fa/stankin/msu/rudn/sechenov.
   persistence/            # base, models, repositories, event_repository, uow.
   diff.py                 # snapshot-diff-1 между двумя snapshot'ами.
   domain/                 # Зарезервировано (пока пусто).
@@ -116,11 +121,14 @@ tests/
   `content_hash` → skip. Тип события ограничен CHECK-констрейнтом; событие
   содержит `before_json`/`after_json`, `detected_at` и `diff_version=snapshot-diff-1`;
   дубликаты diff исключаются unique-индексами (включая NULL-condition вариант).
-- Прогноз `probabilistic-2` строится только когда одновременно выполнены:
-  университет ИТМО, абитуриент есть в последнем valid списке, известен
+- Прогноз `probabilistic-2` строится только для вузов из реестра
+  (`packages/parsers/registry.py`) с `forecast_eligible=True` и когда
+  одновременно выполнены: абитуриент есть в последнем valid списке, известен
   положительный `seat_count`, в группе ≥ 3 valid snapshot, полный batch покрывает
   все отслеживаемые бюджетные группы, `priority_kind=UNIVERSITY_ENROLLMENT`.
   Иначе пересчёт пропускается с `reason` — это нормальное поведение, не ошибка.
+  ИТМО — единственный eligible источник на старте; новые вузы подключаются к
+  прогнозу по одному после валидации (см. `docs/integration-plan.md`).
 - Модель: Beta prior с двумя retained и двумя departed псевдонаблюдениями;
   коррекции когорт: consent `+12%`, нет consent `-18%`, priority 1 `+4%`,
   priority > 3 `-2%`; кандидаты с подтверждённым проходным consented-выбором на

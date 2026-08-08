@@ -1,0 +1,243 @@
+from __future__ import annotations
+
+import json
+import re
+from urllib.parse import quote
+
+import httpx
+
+from packages.parsers.fetchers import fetch_document
+from packages.parsers.registry import FetchedDocument
+
+RNIMU_ROOT = "https://ratings.rsmu.ru/data/root.json"
+MPEI_INDEX = "https://pk.mpei.ru/inform/list"
+MISIS_INDEX = (
+    "https://misis.ru/applicants/admission/progress/"
+    "baccalaureate-and-specialties/list-of-applicants/"
+)
+FA_URL = "https://www.fa.ru/spiski/listabit.php?id_filial=0&type_list=%D0%B1%D0%BA%D0%BB"
+STANKIN_INDEX = "https://priem.stankin.ru/bakalavriatispetsialitet/ranked-lists/"
+STANKIN_GRID = "https://priem.stankin.ru/gridspisokpostupayushchikh"
+MSU_RATING = "https://cpk.msu.ru/rating"
+RUDN_INDEX = "https://admission.rudn.ru/undergraduate/competition_list/"
+SECHENOV_INDEX = "https://priem.sechenov.ru/admission-lists/"
+SECHENOV_API = (
+    "https://priem.sechenov.ru/local/components/firstbit/competition.list/"
+    "templates/.default/applications.php"
+)
+
+
+async def fetch_rnimu(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    root = await fetch_document(RNIMU_ROOT, client=client, content_type="application/json")
+    campaigns = json.loads(root.content)
+    selected: str | None = None
+    for campaign in campaigns:
+        if "специалитет" in str(campaign.get("title", "")).lower():
+            selected = str(campaign["file"])
+            break
+    if selected is None:
+        return ()
+    versions = json.loads(
+        (await fetch_document(
+            f"https://ratings.rsmu.ru/data/{selected}", client=client
+        )).content
+    )
+    if not versions:
+        return ()
+    groups = json.loads(
+        (await fetch_document(
+            f"https://ratings.rsmu.ru/data/{versions[0]['file']}", client=client
+        )).content
+    )
+    documents: list[FetchedDocument] = []
+    for group in groups:
+        url = f"https://ratings.rsmu.ru/data/{group['file']}"
+        doc = await fetch_document(url, client=client, content_type="application/json")
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                content_type="application/json",
+                metadata={
+                    "title": str(group["title"]),
+                    "group_id": str(group["file"]),
+                },
+            )
+        )
+    return tuple(documents)
+
+
+async def fetch_mpei(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    index = await fetch_document(MPEI_INDEX, client=client)
+    html = index.content.decode("utf-8", errors="replace")
+    hrefs = sorted(
+        {
+            href
+            for href in re.findall(r'href="([^"]+)"', html)
+            if re.search(r"/inform/list\d+bacc\.html$", href)
+        }
+    )
+    documents: list[FetchedDocument] = []
+    for href in hrefs:
+        url = f"https://pk.mpei.ru{href}" if href.startswith("/") else href
+        doc = await fetch_document(url, client=client)
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                metadata={
+                    "group_id": href.rsplit("/", 1)[-1].removesuffix(".html"),
+                    "title": href.rsplit("/", 1)[-1].removesuffix(".html"),
+                },
+            )
+        )
+    return tuple(documents)
+
+
+async def fetch_misis(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    index = await fetch_document(MISIS_INDEX, client=client)
+    html = index.content.decode("utf-8", errors="replace")
+    hrefs = sorted(
+        {
+            href
+            for href in re.findall(r'href="([^"]+)"', html)
+            if "list/?id=" in href and "BUDJ" in href and "OKM" in href
+        }
+    )
+    documents: list[FetchedDocument] = []
+    for href in hrefs:
+        url = href if href.startswith("http") else f"https://misis.ru{href.removeprefix('.')}"
+        doc = await fetch_document(url, client=client)
+        group_id = href.rsplit("id=", 1)[-1]
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                metadata={"group_id": group_id, "title": group_id},
+            )
+        )
+    return tuple(documents)
+
+
+async def fetch_fa(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    doc = await fetch_document(FA_URL, client=client)
+    return (doc,)
+
+
+async def fetch_stankin(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    index = await fetch_document(STANKIN_INDEX, client=client)
+    html = index.content.decode("utf-8", errors="replace")
+    options = re.findall(
+        r'<option value="([^"]+)"[^>]*>\s*([^<]+?)\s*</option>', html
+    )
+    directions = [value for value, text in options if re.match(r"^\d{2}\.\d{2}\.\d{2}", value)]
+    documents: list[FetchedDocument] = []
+    for direction in directions:
+        params = (
+            "PROPERTY_388=%D0%91%D1%8E%D0%B4%D0%B6%D0%B5%D1%82%D0%BD%D0%B0%D1%8F+"
+            "%D0%BE%D1%81%D0%BD%D0%BE%D0%B2%D0%B0&PROPERTY_389=1+-+%D0%9E%D1%87%D0%BD%D0%B0%D1%8F"
+            f"&PROPERTY_394={quote(direction)}"
+            "&PROPERTY_423=&PROPERTY_402=-&COL_CITIZENSHIP=%D0%93%D1%80%D0%B0%D0%B6%D0%B4%D0%B0%D0%BD%D0%B8%D0%BD+%D0%A0%D0%A4"
+            "&PROPERTY_747=-&apply_filter=Y&PROPERTY_584=ready&PROPERTY_710=&PROPERTY_410="
+            "&LIST_TYPE=ranked&EDU_LEVEL=bs&PROPERTY_418=%D0%9F%D1%80%D0%B8%D0%B5%D0%BC+%D0%BD%D0%B0+%D0%BE%D0%B1%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5+%D0%BD%D0%B0+%D0%B1%D0%B0%D0%BA%D0%B0%D0%BB%D0%B0%D0%B2%D1%80%D0%B8%D0%B0%D1%82%2F%D1%81%D0%BF%D0%B5%D1%86%D0%B8%D0%B0%D0%BB%D0%B8%D1%82%D0%B5%D1%82"
+            "&PROPERTY_413=%7E%D0%A6%D0%91%D0%9E%D0%9F+%26+%7E%D0%A6%D0%A1%D0%9E%D0%9F"
+        )
+        url = f"{STANKIN_GRID}?{params}"
+        doc = await fetch_document(url, client=client)
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                metadata={
+                    "group_id": f"bs-{direction}",
+                    "title": direction,
+                    "financing": "budget",
+                },
+            )
+        )
+    return tuple(documents)
+
+
+async def fetch_msu(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    from packages.parsers.msu import split_sections
+
+    rating = await fetch_document(MSU_RATING, client=client)
+    html = rating.content.decode("utf-8", errors="replace")
+    deps = sorted(
+        {
+            href
+            for href in re.findall(r'href="([^"]+)"', html)
+            if re.search(r"/rating/dep_\d+$", href)
+        }
+    )
+    documents: list[FetchedDocument] = []
+    for dep in deps:
+        url = f"https://cpk.msu.ru{dep}"
+        doc = await fetch_document(url, client=client)
+        page = doc.content.decode("utf-8", errors="replace")
+        for section in split_sections(page):
+            documents.append(
+                FetchedDocument(
+                    content=section.html.encode("utf-8", errors="replace"),
+                    source_url=f"{url}#{section.anchor_id}",
+                    metadata={
+                        "group_id": f"{dep.removeprefix('/rating/')}:{section.anchor_id}",
+                        "title": f"{section.program} ({section.condition})",
+                        "section_anchor": section.anchor_id,
+                        "section_program": section.program,
+                        "section_condition": section.condition,
+                        "section_seat": section.seat_count,
+                        "faculty_code": dep.removeprefix("/rating/"),
+                    },
+                )
+            )
+    return tuple(documents)
+
+
+async def fetch_rudn(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    index = await fetch_document(RUDN_INDEX, client=client)
+    html = index.content.decode("utf-8", errors="replace")
+    hrefs = sorted(
+        {
+            href
+            for href in re.findall(r'href="([^"]+)"', html)
+            if re.search(r"/competition_list/\d+/$", href)
+        }
+    )
+    documents: list[FetchedDocument] = []
+    for href in hrefs[:60]:  # лимит на цикл: крупный вуз
+        url = href if href.startswith("http") else f"https://admission.rudn.ru{href}"
+        doc = await fetch_document(url, client=client)
+        group_id = href.rstrip("/").rsplit("/", 1)[-1]
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                metadata={"group_id": group_id, "title": group_id},
+            )
+        )
+    return tuple(documents)
+
+
+async def fetch_sechenov(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
+    index = await fetch_document(SECHENOV_INDEX, client=client)
+    html = index.content.decode("utf-8", errors="replace")
+    group_ids = sorted(
+        {int(value) for value in re.findall(r"COMPETITIVE_GROUP_ID=(\d+)", html)}
+    )
+    documents: list[FetchedDocument] = []
+    for group_id in group_ids:
+        url = (
+            f"{SECHENOV_API}?COMPETITIVE_GROUP_ID={group_id}&appPage_{group_id}=1"
+            "&lang=ru&ADMISSION_LISTS=Y&CONTRACT_IS_PAID=N&ORIGINAL_DOCUMENT=N"
+            "&search=&highest_passing_priority=&highest_primary_priority=&header_consent="
+        )
+        doc = await fetch_document(url, client=client)
+        documents.append(
+            FetchedDocument(
+                content=doc.content,
+                source_url=url,
+                metadata={"group_id": str(group_id), "title": str(group_id)},
+            )
+        )
+    return tuple(documents)
