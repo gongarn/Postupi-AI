@@ -128,6 +128,11 @@ async def api_groups(university: str = "") -> list[dict[str, object]]:
     ]
 
 
+@app.get("/method", response_class=HTMLResponse)
+async def method_page(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "method.html", {})
+
+
 @app.get("/data", response_class=HTMLResponse)
 async def data_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "data.html", {})

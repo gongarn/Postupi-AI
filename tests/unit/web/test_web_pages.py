@@ -81,3 +81,10 @@ def test_api_groups_filtered(client: TestClient) -> None:
     assert response.status_code == 200
     items = response.json()
     assert items and all(item["university"] == "itmo" for item in items)
+
+
+def test_method_page(client: TestClient) -> None:
+    response = client.get("/method")
+    assert response.status_code == 200
+    assert "Как мы считаем" in response.text
+    assert "не является гарантией" in response.text

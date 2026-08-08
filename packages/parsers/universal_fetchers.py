@@ -68,13 +68,20 @@ async def fetch_rnimu(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
 async def fetch_mpei(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
     index = await fetch_document(MPEI_INDEX, client=client)
     html = index.content.decode("utf-8", errors="replace")
-    hrefs = sorted(
-        {
-            href
-            for href in re.findall(r'href="([^"]+)"', html)
-            if re.search(r"/inform/list\d+bacc\.html$", href)
-        }
-    )
+    # строки таблицы: ячейка с названием направления + ссылки на списки
+    titles: dict[str, str] = {}
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
+        if len(cells) < 2:
+            continue
+        name = unescape(re.sub(r"<[^>]+>", " ", cells[0]))
+        name = re.sub(r"\s+", " ", name).strip()
+        if not name:
+            continue
+        for href in re.findall(r'href="([^"]+)"', cells[1]):
+            if re.search(r"/inform/list\d+bacc\.html$", href):
+                titles[href] = name
+    hrefs = sorted(titles)
     documents: list[FetchedDocument] = []
     for href in hrefs:
         url = f"https://pk.mpei.ru{href}" if href.startswith("/") else href
@@ -85,7 +92,7 @@ async def fetch_mpei(client: httpx.AsyncClient) -> tuple[FetchedDocument, ...]:
                 source_url=url,
                 metadata={
                     "group_id": href.rsplit("/", 1)[-1].removesuffix(".html"),
-                    "title": href.rsplit("/", 1)[-1].removesuffix(".html"),
+                    "title": titles[href],
                 },
             )
         )
@@ -235,6 +242,18 @@ async def fetch_sechenov(client: httpx.AsyncClient) -> tuple[FetchedDocument, ..
             if int(value) > 0
         }
     )
+    titles: dict[int, str] = {}
+    for group_id in group_ids:
+        marker = f'data-group-id="{group_id}"'
+        position = html.find(marker)
+        if position == -1:
+            continue
+        block = html[position:position + 3000]
+        text = unescape(re.sub(r"<[^>]+>", " ", block))
+        text = re.sub(r"\s+", " ", text)
+        match = re.search(r"\d{2}\.\d{2}\.\d{2}\s+([^К]{3,70}?)\s+Количество", text)
+        if match:
+            titles[group_id] = match.group(1).strip()
     documents: list[FetchedDocument] = []
     for group_id in group_ids:
         url = (
@@ -247,7 +266,7 @@ async def fetch_sechenov(client: httpx.AsyncClient) -> tuple[FetchedDocument, ..
             FetchedDocument(
                 content=doc.content,
                 source_url=url,
-                metadata={"group_id": str(group_id), "title": str(group_id)},
+                metadata={"group_id": str(group_id), "title": titles.get(group_id, str(group_id))},
             )
         )
     return tuple(documents)
